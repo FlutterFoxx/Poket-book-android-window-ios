@@ -27,7 +27,7 @@ on:
 
 env:
   REACT_APP_BACKEND_URL: https://party-tally-1.preview.emergentagent.com
-  NODE_VERSION: '20'       # LTS — stable for React builds
+  NODE_VERSION: '22'       # LTS — required by react-router-dom@7 (needs >=20)
   JAVA_VERSION: '17'
   BUNDLE_ID: 'in.poketbook.app'
   # Opt into Node.js 24 runner to suppress deprecation warnings
