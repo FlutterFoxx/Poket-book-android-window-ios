@@ -1,0 +1,27 @@
+
+# ── Mobile signing keys — NEVER commit these ──────────────────
+*.keystore
+*.jks
+*.p12
+*.p8
+*.mobileprovision
+poketbook-release.keystore
+distribution.p12
+
+# ── Capacitor / Android build artifacts ───────────────────────
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/captures/
+
+# ── iOS build artifacts ────────────────────────────────────────
+frontend/ios/build/
+frontend/ios/App/Pods/
+frontend/ios/App/DerivedData/
+frontend/*.xcarchive
+frontend/poketbook-ipa/
+
+# ── Generated dist files ───────────────────────────────────────
+dist/
+*.aab
+*.apk
+*.ipa

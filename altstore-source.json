@@ -1,0 +1,60 @@
+{
+  "sourceURL": "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/altstore-source.json",
+  "name": "poketbook",
+  "identifier": "in.poketbook.source",
+  "subtitle": "Digital Udhar Khaata by Flutter Fox",
+  "description": "Install poketbook — fast double-entry ledger for Indian shopkeepers. Track Naam & Jama, auto-backup to Google Sheets, get email reports. Same database as web app.",
+  "iconURL": "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/frontend/public/logo512.png",
+  "headerURL": "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/frontend/public/logo512.png",
+  "website": "https://poketbook.in",
+  "tintColor": "22C55E",
+  "apps": [
+    {
+      "name": "poketbook",
+      "bundleIdentifier": "in.poketbook.app",
+      "developerName": "Flutter Fox",
+      "subtitle": "Digital Udhar Khaata",
+      "localizedDescription": "poketbook is a fast, accurate double-entry ledger for Indian shopkeepers and traders.\n\n• Track Naam (Credit) & Jama (Debit) with automatic balance\n• Auto-backup to Google Sheets\n• WhatsApp-style email backup\n• Phone OTP login\n• PDF & Excel export\n• 7-day FREE trial\n• Same database as web app (poketbook.in)",
+      "iconURL": "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/frontend/public/logo512.png",
+      "tintColor": "22C55E",
+      "category": "finance",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "1.0.0",
+          "buildVersion": "1",
+          "date": "2026-04-25T00:00:00Z",
+          "localizedDescription": "Initial release of poketbook iOS app.\n\n• Double-entry ledger\n• Google Sheets backup\n• Email auto-backup\n• Phone OTP login\n• 7-day FREE trial",
+          "downloadURL": "https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/releases/download/v1.0.0/poketbook.ipa",
+          "minOSVersion": "13.0",
+          "size": 15728640
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": [
+          {
+            "name": "Contacts",
+            "usageDescription": "Used to autofill party mobile numbers"
+          },
+          {
+            "name": "FaceID",
+            "usageDescription": "Used for quick secure login"
+          }
+        ]
+      }
+    }
+  ],
+  "news": [
+    {
+      "title": "poketbook is on AltStore!",
+      "identifier": "poketbook-launch-2026",
+      "caption": "Install the iOS app — shares same database as web app",
+      "date": "2026-04-25",
+      "tintColor": "22C55E",
+      "imageURL": "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/frontend/public/logo512.png",
+      "url": "https://poketbook.in",
+      "notify": true
+    }
+  ]
+}

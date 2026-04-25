@@ -1,0 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+body { font-family: 'Work Sans', sans-serif; background-color: #FDFBF7; }
+h1,h2,h3,h4,h5,h6 { font-family: 'IBM Plex Sans', sans-serif; }
+.font-mono, code { font-family: 'IBM Plex Mono', monospace; }
+.ledger-table tbody tr:hover { background-color: #f5f5f4; }
+.fast-entry-row input { font-family: 'IBM Plex Mono', monospace; outline: none; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f5f5f4; }
+::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
