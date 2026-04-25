@@ -95,7 +95,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./frontend
-        run: npm install --legacy-peer-deps
+        run: yarn install --frozen-lockfile --ignore-engines
 
       - name: Build React app
         working-directory: ./frontend
@@ -146,7 +146,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./frontend
-        run: npm install --legacy-peer-deps
+        run: yarn install --frozen-lockfile --ignore-engines
 
       - name: Install Capacitor CLI
         working-directory: ./frontend
@@ -251,7 +251,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./frontend
-        run: npm install --legacy-peer-deps
+        run: yarn install --frozen-lockfile --ignore-engines
 
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document
