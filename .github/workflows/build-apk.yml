@@ -177,15 +177,15 @@ jobs:
           KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "app/poketbook-release.keystore" ]; then
+          if [ false ]; then
             echo "✅ Signing secrets found — building signed Release AAB + APK"
-            ./gradlew bundleRelease assembleRelease
+            ./gradlew bundleRelease assembleRelease --info
             echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
           else
             echo "⚠️  Signing secrets not configured — building unsigned Debug APK"
             echo "    To enable signed builds, add secrets: ANDROID_SIGNING_KEY,"
             echo "    ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
-            ./gradlew assembleDebug
+            ./gradlew assembleDebug --info
             echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
           fi
 
