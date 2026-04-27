@@ -1,8 +1,5 @@
 #  poketbook — Mobile App CI/CD
-#  Builds: Android AAB (Play Store) + iOS IPA (App Store / AltStore)
-#
-#  SECURITY: All keys, passwords, and certificates are stored
-#  ONLY in GitHub Secrets vault. Zero secrets in this file.
+#  Builds: Android APK (debug, ready to install)
 ##############################################################
 
 name: Build & Release poketbook Apps
@@ -10,7 +7,7 @@ name: Build & Release poketbook Apps
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'   # Trigger on version tags: v1.0.0, v1.2.3
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       platform:
@@ -26,10 +23,9 @@ on:
 
 env:
   REACT_APP_BACKEND_URL: https://party-tally-1.preview.emergentagent.com
-  NODE_VERSION: '22'       # LTS — required by react-router-dom@7 (needs >=20)
+  NODE_VERSION: '22'
   JAVA_VERSION: '17'
   BUNDLE_ID: 'in.poketbook.app'
-  # Opt into Node.js 24 runner to suppress deprecation warnings
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 #################################################################
@@ -87,7 +83,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Use npm (pre-installed, reliable in CI) — avoids yarn availability issues
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -115,7 +110,7 @@ jobs:
           retention-days: 1
 
 #################################################################
-#  JOB 3 — Build Android AAB + APK
+#  JOB 3 — Build Android APK
 #################################################################
   build-android:
     name: Build Android AAB + APK
@@ -155,278 +150,94 @@ jobs:
         working-directory: ./frontend
         run: npx cap sync android
 
+      # ── IMPORTANT: Overwrite build.gradle AFTER cap sync ──────
+      # cap sync regenerates build.gradle and can introduce null issues
+      # We overwrite it with a clean, safe version immediately after
+      - name: Fix build.gradle after cap sync
+        run: |
+          cat > frontend/android/app/build.gradle << 'EOF'
+          apply plugin: 'com.android.application'
+
+          android {
+              namespace "in.poketbook.app"
+              compileSdk rootProject.ext.compileSdkVersion
+              defaultConfig {
+                  applicationId "in.poketbook.app"
+                  minSdkVersion rootProject.ext.minSdkVersion
+                  targetSdkVersion rootProject.ext.targetSdkVersion
+                  versionCode 1
+                  versionName "1.0.0"
+                  testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+                  aaptOptions {
+                      ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+                  }
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+                  }
+                  debug {
+                      applicationIdSuffix ".debug"
+                      versionNameSuffix "-debug"
+                  }
+              }
+          }
+
+          repositories {
+              flatDir{
+                  dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+              }
+          }
+
+          dependencies {
+              implementation fileTree(include: ['*.jar'], dir: 'libs')
+              implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+              implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+              implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+              implementation project(':capacitor-android')
+              testImplementation "junit:junit:$junitVersion"
+              androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+              androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+              implementation project(':capacitor-cordova-android-plugins')
+          }
+
+          apply from: 'capacitor.build.gradle'
+
+          try {
+              def servicesJSON = file('google-services.json')
+              if (servicesJSON.text) {
+                  apply plugin: 'com.google.gms.google-services'
+              }
+          } catch(Exception e) {
+              logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+          }
+          EOF
+
       - name: Make Gradle wrapper executable
         working-directory: ./frontend/android
         run: chmod +x gradlew
 
-      # ── Decode keystore (only when secret is available) ────────
-      - name: Decode Android keystore
-        if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
-        run: |
-          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | tr -d '\n\r ' | base64 --decode > \
-            ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
-
-      # ── Smart build: signed release if secrets present, debug otherwise ────
-      - name: Build Android (Release AAB + APK or Debug APK)
+      - name: Build Debug APK
         working-directory: ./frontend/android
-        env:
-          VERSION_CODE:      ${{ needs.version.outputs.version_code }}
-          VERSION_NAME:      ${{ needs.version.outputs.version_name }}
-          KEYSTORE_PATH:     app/poketbook-release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          if [ false ]; then
-            echo "✅ Signing secrets found — building signed Release AAB + APK"
-            ./gradlew bundleRelease assembleRelease --info
-            echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
-          else
-            echo "⚠️  Signing secrets not configured — building unsigned Debug APK"
-            echo "    To enable signed builds, add secrets: ANDROID_SIGNING_KEY,"
-            echo "    ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
-            ./gradlew assembleDebug --info
-            echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
-          fi
+        run: ./gradlew assembleDebug
 
-      # ── Rename artifacts with version ──────────────────────────
-      - name: Rename artifacts
+      - name: Rename APK
         run: |
           V="${{ needs.version.outputs.version_name }}"
           C="${{ needs.version.outputs.version_code }}"
-          if [ "$BUILD_TYPE" = "release" ]; then
-            cp "frontend/android/app/build/outputs/bundle/release/app-release.aab" \
-               "poketbook-v${V}-${C}.aab" 2>/dev/null || true
-            APK=$(find frontend/android/app/build/outputs/apk/release/ -name "*.apk" | head -1)
-            [ -n "$APK" ] && cp "$APK" "poketbook-v${V}-${C}-release.apk" || true
-          else
-            APK=$(find frontend/android/app/build/outputs/apk/debug/ -name "*.apk" | head -1)
-            [ -n "$APK" ] && cp "$APK" "poketbook-v${V}-${C}-debug.apk" || true
-          fi
+          APK=$(find frontend/android/app/build/outputs/apk/debug/ -name "*.apk" | head -1)
+          [ -n "$APK" ] && cp "$APK" "poketbook-v${V}-${C}-debug.apk" || true
 
-      # ── Wipe decoded keystore ──────────────────────────────────
-      - name: Wipe keystore
-        if: always()
-        run: rm -f ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
-
-      - name: Upload AAB (Play Store — only when signed)
-        if: env.BUILD_TYPE == 'release'
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: poketbook-android-aab-v${{ needs.version.outputs.version_name }}
-          path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.aab
-          retention-days: 90
-
-      - name: Upload Release APK
-        if: env.BUILD_TYPE == 'release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: poketbook-android-apk-release-v${{ needs.version.outputs.version_name }}
-          path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-release.apk
-          retention-days: 90
-
-      - name: Upload Debug APK (fallback when secrets missing)
-        if: env.BUILD_TYPE == 'debug'
-        uses: actions/upload-artifact@v4
-        with:
-          name: poketbook-android-apk-debug-v${{ needs.version.outputs.version_name }}
+          name: poketbook-android-apk-v${{ needs.version.outputs.version_name }}
           path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-debug.apk
           retention-days: 30
 
       - name: Android build summary
         run: |
-          echo "### ✅ Android Build Complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | Purpose |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|---------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| \`poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.aab\` | Upload to **Google Play Store** |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| \`poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.apk\` | **Direct sideload install** |" >> "$GITHUB_STEP_SUMMARY"
-
-#################################################################
-#  JOB 4 — Build iOS IPA (macOS runner)
-#################################################################
-  build-ios:
-    name: Build iOS IPA
-    runs-on: macos-latest
-    needs: [ version, build-web ]
-    if: ${{ github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both' || startsWith(github.ref, 'refs/tags/') }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Download web build
-        uses: actions/download-artifact@v4
-        with:
-          name: web-build-${{ needs.version.outputs.version_code }}
-          path: frontend/build/
-
-      - name: Install dependencies
-        working-directory: ./frontend
-        run: yarn install --frozen-lockfile --ignore-engines
-
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods --no-document
-
-      - name: Sync Capacitor → iOS
-        working-directory: ./frontend
-        run: npx cap sync ios
-
-      - name: Install iOS Pods
-        working-directory: ./frontend/ios/App
-        run: pod install
-
-      - name: Import Apple certificate
-        uses: apple-actions/import-codesign-certs@v2
-        with:
-          p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
-          p12-password:    ${{ secrets.IOS_P12_PASSWORD }}
-
-      - name: Download provisioning profile
-        uses: apple-actions/download-provisioning-profiles@v1
-        with:
-          bundle-id:       ${{ env.BUNDLE_ID }}
-          issuer-id:       ${{ secrets.APPLE_ISSUER_ID }}
-          api-key-id:      ${{ secrets.APPLE_KEY_ID }}
-          api-private-key: ${{ secrets.APPLE_PRIVATE_KEY }}
-
-      - name: Build iOS Archive
-        working-directory: ./frontend/ios
-        run: |
-          xcodebuild archive \
-            -workspace App/App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -destination "generic/platform=iOS" \
-            -archivePath ../poketbook-${{ needs.version.outputs.version_name }}.xcarchive \
-            PRODUCT_BUNDLE_IDENTIFIER=${{ env.BUNDLE_ID }} \
-            MARKETING_VERSION=${{ needs.version.outputs.version_name }} \
-            CURRENT_PROJECT_VERSION=${{ needs.version.outputs.version_code }}
-
-      - name: Export IPA
-        working-directory: ./frontend
-        run: |
-          xcodebuild -exportArchive \
-            -archivePath "poketbook-${{ needs.version.outputs.version_name }}.xcarchive" \
-            -exportPath "poketbook-ipa" \
-            -exportOptionsPlist "ios/App/ExportOptions.plist"
-          IPA=$(find poketbook-ipa/ -name "*.ipa" | head -1)
-          [ -n "$IPA" ] && mv "$IPA" "poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.ipa"
-
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: poketbook-ios-ipa-v${{ needs.version.outputs.version_name }}
-          path: frontend/poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.ipa
-          retention-days: 90
-
-#################################################################
-#  JOB 5 — Update AltStore Source + Create GitHub Release
-#################################################################
-  publish:
-    name: Update AltStore Source + Create Release
-    runs-on: ubuntu-latest
-    needs: [ version, build-android, build-ios ]
-    if: always() && (needs.build-android.result == 'success' || needs.build-ios.result == 'success')
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download Android APK
-        uses: actions/download-artifact@v4
-        with:
-          name: poketbook-android-apk-v${{ needs.version.outputs.version_name }}
-          path: dist/
-        continue-on-error: true
-
-      - name: Download iOS IPA
-        uses: actions/download-artifact@v4
-        with:
-          name: poketbook-ios-ipa-v${{ needs.version.outputs.version_name }}
-          path: dist/
-        continue-on-error: true
-
-      - name: Update AltStore source JSON
-        run: |
-          REPO="${{ github.repository }}"
-          TAG="${{ needs.version.outputs.release_tag }}"
-          VER="${{ needs.version.outputs.version_name }}"
-          CODE="${{ needs.version.outputs.version_code }}"
-          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          IPA_URL="https://github.com/${REPO}/releases/download/${TAG}/poketbook-v${VER}-${CODE}.ipa"
-          IPA_FILE="dist/poketbook-v${VER}-${CODE}.ipa"
-          IPA_SIZE=$(stat -c%s "$IPA_FILE" 2>/dev/null || echo "15728640")
-
-          python3 - <<PYEOF
-          import json
-
-          with open('altstore-source.json', 'r') as f:
-              src = json.load(f)
-
-          repo = "${REPO}"
-          src['sourceURL'] = f"https://raw.githubusercontent.com/{repo}/main/altstore-source.json"
-          src['apps'][0]['iconURL'] = f"https://raw.githubusercontent.com/{repo}/main/frontend/public/logo512.png"
-
-          new_version = {
-              "version": "${VER}",
-              "buildVersion": "${CODE}",
-              "date": "${DATE}",
-              "localizedDescription": "poketbook v${VER} — Digital Udhar Khaata",
-              "downloadURL": "${IPA_URL}",
-              "minOSVersion": "13.0",
-              "size": int("${IPA_SIZE}")
-          }
-
-          versions = src['apps'][0].get('versions', [])
-          versions = [v for v in versions if v.get('version') != '${VER}']
-          versions.insert(0, new_version)
-          src['apps'][0]['versions'] = versions
-
-          with open('altstore-source.json', 'w') as f:
-              json.dump(src, f, indent=2)
-          print("AltStore source updated")
-          PYEOF
-
-      - name: Commit AltStore update
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add altstore-source.json
-          git diff --cached --quiet || git commit -m "chore: update AltStore source v${{ needs.version.outputs.version_name }} [skip ci]"
-          git push origin HEAD:main || true
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ needs.version.outputs.release_tag }}
-          name: "poketbook ${{ needs.version.outputs.release_tag }}"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          files: dist/*
-          body: |
-            ## 🚀 poketbook ${{ needs.version.outputs.release_tag }}
-
-            **Version Code:** `${{ needs.version.outputs.version_code }}`
-
-            ### 📥 Downloads
-            | Platform | File | Use For |
-            |----------|------|---------|
-            | 🤖 Android | `*.aab` | Google Play Store |
-            | 🤖 Android | `*.apk` | Direct sideload |
-            | 🍎 iOS | `*.ipa` | TestFlight / AltStore |
-
-            ### 🤖 Install Android APK
-            1. Download `*.apk`
-            2. Settings → Security → Enable Unknown Sources
-            3. Install
-
-            ### 🍎 Install iOS via AltStore
-            Add source: `https://raw.githubusercontent.com/${{ github.repository }}/main/altstore-source.json`
-
-            ### 🌐 Shared Database
-            Web + Android + iOS all use the same backend → same data!
+          echo "### ✅ Android Debug APK Ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the APK from the Artifacts section above" >> "$GITHUB_STEP_SUMMARY"
