@@ -355,16 +355,42 @@ async def refresh_token_endpoint(request: Request, response: Response):
 
 @api_router.get("/parties")
 async def get_parties(current_user: dict = Depends(get_current_user)):
+    uid = current_user["_id"]
     parties = await db.parties.find(
-        {"user_id": current_user["_id"], "is_deleted": {"$ne": True}}
+        {"user_id": uid, "is_deleted": {"$ne": True}}
     ).to_list(None)
+
+    if not parties:
+        return []
+
+    party_ids = [str(p["_id"]) for p in parties]
+
+    # ── Single aggregation: latest balance per party (replaces N get_party_balance calls) ──
+    balance_pipeline = [
+        {"$match": {"party_id": {"$in": party_ids}, "is_deleted": {"$ne": True}}},
+        {"$sort": {"date": -1, "created_at": -1}},
+        {"$group": {"_id": "$party_id", "balance": {"$first": "$balance"}}},
+    ]
+    balance_cursor = await db.ledger_entries.aggregate(balance_pipeline).to_list(None)
+    balance_map = {row["_id"]: row["balance"] for row in balance_cursor}
+
+    # ── Single aggregation: unlocked entry count per party (replaces N count_documents calls) ──
+    unlocked_pipeline = [
+        {"$match": {
+            "party_id": {"$in": party_ids},
+            "is_locked": {"$ne": True},
+            "is_deleted": {"$ne": True},
+        }},
+        {"$group": {"_id": "$party_id", "count": {"$sum": 1}}},
+    ]
+    unlocked_cursor = await db.ledger_entries.aggregate(unlocked_pipeline).to_list(None)
+    unlocked_map = {row["_id"]: row["count"] for row in unlocked_cursor}
+
     result = []
     for p in parties:
         pid = str(p["_id"])
-        bal = await get_party_balance(pid)
-        unlocked = await db.ledger_entries.count_documents(
-            {"party_id": pid, "is_locked": {"$ne": True}, "is_deleted": {"$ne": True}}
-        )
+        bal = balance_map.get(pid, 0.0)
+        unlocked = unlocked_map.get(pid, 0)
         balance_zero = abs(round(bal, 2)) <= 0.01
         result.append({
             "id": pid, "name": p["name"],
@@ -1084,7 +1110,7 @@ async def sheets_connect_url(current_user: dict = Depends(get_current_user)):
         return {"error": str(e), "configured": False}
 
 @api_router.get("/oauth/sheets/callback")
-async def sheets_oauth_callback(code: str = None, state: str = None, error: str = None):
+async def sheets_oauth_callback(request: Request, code: str = None, state: str = None, error: str = None):
     """Handle OAuth callback from Google — store tokens and redirect to app"""
     from fastapi.responses import RedirectResponse
     if error or not code:
@@ -1114,11 +1140,17 @@ async def sheets_oauth_callback(code: str = None, state: str = None, error: str 
             "google_token_expiry": creds.expiry.isoformat() if creds.expiry else None,
             "google_sheets_connected": True,
         }})
-        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
-        return RedirectResponse(url=f"{frontend_url}/export?sheets=connected")
+        # Use request origin so callback works across all environments (preview, prod, custom domain)
+        origin = (
+            request.headers.get("origin")
+            or request.headers.get("referer", "").rstrip("/").rsplit("/export", 1)[0]
+            or os.environ.get("FRONTEND_URL", "http://localhost:3000")
+        )
+        return RedirectResponse(url=f"{origin}/export?sheets=connected")
     except Exception as e:
         logging.error(f"OAuth callback error: {e}")
-        return RedirectResponse(url="/?sheets=error")
+        origin = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+        return RedirectResponse(url=f"{origin}/?sheets=error")
 
 @api_router.post("/export/google-sheets-backup")
 async def backup_to_google_sheets(current_user: dict = Depends(get_current_user)):
