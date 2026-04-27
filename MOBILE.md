@@ -48,7 +48,7 @@ Follow the interactive prompts.
 ## 🤖 Android APK Build
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 22+
 - Java 17 (JDK): https://adoptium.net
 - Android Studio: https://developer.android.com/studio
 

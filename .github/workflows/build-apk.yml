@@ -160,14 +160,15 @@ jobs:
         working-directory: ./frontend/android
         run: chmod +x gradlew
 
-      # ── Decode keystore from Secret vault ──────────────────────
+      # ── Decode keystore (only when secret is available) ────────
       - name: Decode Android keystore
+        if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
         run: |
           echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > \
             ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
 
-      # ── Build signed Release AAB (Google Play Store) ───────────
-      - name: Build signed Release AAB
+      # ── Smart build: signed release if secrets present, debug otherwise ────
+      - name: Build Android (Release AAB + APK or Debug APK)
         working-directory: ./frontend/android
         env:
           VERSION_CODE:      ${{ needs.version.outputs.version_code }}
@@ -176,48 +177,62 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease
+        run: |
+          if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "app/poketbook-release.keystore" ]; then
+            echo "✅ Signing secrets found — building signed Release AAB + APK"
+            ./gradlew bundleRelease assembleRelease
+            echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
+          else
+            echo "⚠️  Signing secrets not configured — building unsigned Debug APK"
+            echo "    To enable signed builds, add secrets: ANDROID_SIGNING_KEY,"
+            echo "    ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
+            ./gradlew assembleDebug
+            echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
+          fi
 
-      # ── Also build APK for direct sideload install ─────────────
-      - name: Build signed Release APK
-        working-directory: ./frontend/android
-        env:
-          VERSION_CODE:      ${{ needs.version.outputs.version_code }}
-          VERSION_NAME:      ${{ needs.version.outputs.version_name }}
-          KEYSTORE_PATH:     app/poketbook-release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
-
-      # ── Rename with version ────────────────────────────────────
+      # ── Rename artifacts with version ──────────────────────────
       - name: Rename artifacts
         run: |
           V="${{ needs.version.outputs.version_name }}"
           C="${{ needs.version.outputs.version_code }}"
-          cp "frontend/android/app/build/outputs/bundle/release/app-release.aab" \
-             "poketbook-v${V}-${C}.aab" 2>/dev/null || true
-          APK=$(find frontend/android/app/build/outputs/apk/release/ -name "*.apk" | head -1)
-          [ -n "$APK" ] && cp "$APK" "poketbook-v${V}-${C}.apk" || true
+          if [ "$BUILD_TYPE" = "release" ]; then
+            cp "frontend/android/app/build/outputs/bundle/release/app-release.aab" \
+               "poketbook-v${V}-${C}.aab" 2>/dev/null || true
+            APK=$(find frontend/android/app/build/outputs/apk/release/ -name "*.apk" | head -1)
+            [ -n "$APK" ] && cp "$APK" "poketbook-v${V}-${C}-release.apk" || true
+          else
+            APK=$(find frontend/android/app/build/outputs/apk/debug/ -name "*.apk" | head -1)
+            [ -n "$APK" ] && cp "$APK" "poketbook-v${V}-${C}-debug.apk" || true
+          fi
 
       # ── Wipe decoded keystore ──────────────────────────────────
       - name: Wipe keystore
         if: always()
         run: rm -f ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
 
-      - name: Upload AAB (Play Store)
+      - name: Upload AAB (Play Store — only when signed)
+        if: env.BUILD_TYPE == 'release'
         uses: actions/upload-artifact@v4
         with:
           name: poketbook-android-aab-v${{ needs.version.outputs.version_name }}
           path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.aab
           retention-days: 90
 
-      - name: Upload APK (direct install)
+      - name: Upload Release APK
+        if: env.BUILD_TYPE == 'release'
         uses: actions/upload-artifact@v4
         with:
-          name: poketbook-android-apk-v${{ needs.version.outputs.version_name }}
-          path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.apk
+          name: poketbook-android-apk-release-v${{ needs.version.outputs.version_name }}
+          path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-release.apk
           retention-days: 90
+
+      - name: Upload Debug APK (fallback when secrets missing)
+        if: env.BUILD_TYPE == 'debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: poketbook-android-apk-debug-v${{ needs.version.outputs.version_name }}
+          path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-debug.apk
+          retention-days: 30
 
       - name: Android build summary
         run: |
