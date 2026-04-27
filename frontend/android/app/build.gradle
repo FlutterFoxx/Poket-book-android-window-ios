@@ -18,15 +18,11 @@ android {
         }
     }
 
-    def keystorePath     = System.getenv("KEYSTORE_PATH")
-    def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-    def keyAlias         = System.getenv("KEY_ALIAS")
-    def keyPassword      = System.getenv("KEY_PASSWORD")
-    def hasSigningConfig = keystorePath != null && keystorePassword != null &&
-                           keyAlias != null && keyPassword != null &&
-                           keystorePath != "" && keystorePassword != "" &&
-                           keyAlias != "" && keyPassword != "" &&
-                           file(keystorePath).exists()
+def keystorePath     = System.getenv("KEYSTORE_PATH") ?: ""
+def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+def keyAlias         = System.getenv("KEY_ALIAS") ?: ""
+def keyPassword      = System.getenv("KEY_PASSWORD") ?: ""
+def hasSigningConfig = !keystorePath.isEmpty() && !keystorePassword.isEmpty() && !keyAlias.isEmpty() && !keyPassword.isEmpty() && new File(keystorePath).exists()
 
     if (hasSigningConfig) {
         signingConfigs {
