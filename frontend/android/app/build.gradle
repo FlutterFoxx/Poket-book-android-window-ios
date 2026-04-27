@@ -14,20 +14,11 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-                storePassword keystorePassword
-                keyAlias      keyAlias
-                keyPassword   keyPassword
-            }
-        }
-    }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (hasSigningConfig) {
-                signingConfig signingConfigs.release
-            }
         }
         debug {
             applicationIdSuffix ".debug"
