@@ -8,21 +8,24 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Version injected by GitHub Actions env vars; safe defaults for local dev
-        versionCode (System.getenv("VERSION_CODE") ?: "1").toInteger()
-        versionName System.getenv("VERSION_NAME") ?: "1.0.0"
+        def vc = System.getenv("VERSION_CODE")
+        def vn = System.getenv("VERSION_NAME")
+        versionCode vc != null ? vc.toInteger() : 1
+        versionName vn != null ? vn : "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
 
-    // Signing config — only defined when ALL secrets are present AND keystore file exists.
-    // If any value is missing the block is skipped and release builds are unsigned/debug.
-    def keystorePath     = System.getenv("KEYSTORE_PATH")     ?: ""
-    def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-    def keyAlias         = System.getenv("KEY_ALIAS")         ?: ""
-    def keyPassword      = System.getenv("KEY_PASSWORD")      ?: ""
-    def hasSigningConfig = keystorePath && keystorePassword && keyAlias && keyPassword &&
+    def keystorePath     = System.getenv("KEYSTORE_PATH")
+    def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+    def keyAlias         = System.getenv("KEY_ALIAS")
+    def keyPassword      = System.getenv("KEY_PASSWORD")
+    def hasSigningConfig = keystorePath != null && keystorePassword != null &&
+                           keyAlias != null && keyPassword != null &&
+                           keystorePath != "" && keystorePassword != "" &&
+                           keyAlias != "" && keyPassword != "" &&
                            file(keystorePath).exists()
 
     if (hasSigningConfig) {
@@ -40,7 +43,6 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // Apply signing only when config was successfully created above
             if (hasSigningConfig) {
                 signingConfig signingConfigs.release
             }
