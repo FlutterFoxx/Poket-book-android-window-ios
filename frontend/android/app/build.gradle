@@ -7,27 +7,13 @@ android {
         applicationId "in.poketbook.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Version injected by GitHub Actions env vars; safe defaults for local dev
-        def vc = System.getenv("VERSION_CODE")
-        def vn = System.getenv("VERSION_NAME")
-        versionCode vc != null ? vc.toInteger() : 1
-        versionName vn != null ? vn : "1.0.0"
+        versionCode 1
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-
-def keystorePath     = System.getenv("KEYSTORE_PATH") ?: ""
-def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-def keyAlias         = System.getenv("KEY_ALIAS") ?: ""
-def keyPassword      = System.getenv("KEY_PASSWORD") ?: ""
-def hasSigningConfig = !keystorePath.isEmpty() && !keystorePassword.isEmpty() && !keyAlias.isEmpty() && !keyPassword.isEmpty() && new File(keystorePath).exists()
-
-    if (hasSigningConfig) {
-        signingConfigs {
-            release {
-                storeFile     file(keystorePath)
                 storePassword keystorePassword
                 keyAlias      keyAlias
                 keyPassword   keyPassword
