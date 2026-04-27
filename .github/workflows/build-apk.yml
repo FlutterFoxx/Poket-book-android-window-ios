@@ -163,7 +163,7 @@ jobs:
       - name: Decode Android keystore
         if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
         run: |
-          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > \
+          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | tr -d '\n\r ' | base64 --decode > \
             ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
 
       # ── Smart build: signed release if secrets present, debug otherwise ────
