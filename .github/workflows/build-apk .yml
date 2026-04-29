@@ -1,4 +1,4 @@
-#  poketbook — Mobile App CI/CD
+#  Poketbook — Mobile App CI/CD
 #  Builds: Android AAB (Play Store) + APK (direct install)
 ##############################################################
  
@@ -150,6 +150,11 @@ jobs:
         working-directory: ./frontend
         run: npx cap sync android
  
+      - name: Decode Android keystore to tmp
+        run: |
+          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > /tmp/poketbook-release.keystore
+          echo "Keystore size: $(stat -c%s /tmp/poketbook-release.keystore) bytes"
+ 
       - name: Fix build.gradle after cap sync
         run: |
           cat > frontend/android/app/build.gradle << 'GRADLE_EOF'
@@ -176,8 +181,8 @@ jobs:
                       def ksPass = System.getenv("KEYSTORE_PASSWORD")
                       def kAlias = System.getenv("KEY_ALIAS")
                       def kPass  = System.getenv("KEY_PASSWORD")
-                      if (ksPath) {
-                          storeFile file(ksPath)
+                      if (ksPath && new File(ksPath).exists()) {
+                          storeFile new File(ksPath)
                           storePassword ksPass
                           keyAlias kAlias
                           keyPassword kPass
@@ -232,20 +237,10 @@ jobs:
         working-directory: ./frontend/android
         run: chmod +x gradlew
  
-      - name: Decode Android keystore
-       - name: Decode Android keystore
-        run: |
-          KEYSTORE_DIR="${{ github.workspace }}/frontend/android/app"
-          KEYSTORE_FILE="${KEYSTORE_DIR}/poketbook-release.keystore"
-          echo "Saving keystore to: $KEYSTORE_FILE"
-          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > "$KEYSTORE_FILE"
-          echo "Keystore size: $(stat -c%s $KEYSTORE_FILE) bytes"
-          echo "KEYSTORE_FILE=$KEYSTORE_FILE" >> $GITHUB_ENV
- 
       - name: Build signed Release AAB + APK
         working-directory: ./frontend/android
         env:
-          KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }}         
+          KEYSTORE_PATH: /tmp/poketbook-release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -253,7 +248,7 @@ jobs:
  
       - name: Wipe keystore
         if: always()
-        run: rm -f frontend/android/app/poketbook-release.keystore
+        run: rm -f /tmp/poketbook-release.keystore
  
       - name: Rename artifacts
         run: |
@@ -285,4 +280,3 @@ jobs:
           echo "|----------|---------|" >> "$GITHUB_STEP_SUMMARY"
           echo "| poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.aab | Upload to Google Play Store |" >> "$GITHUB_STEP_SUMMARY"
           echo "| poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.apk | Direct install on phone |" >> "$GITHUB_STEP_SUMMARY"
- 
