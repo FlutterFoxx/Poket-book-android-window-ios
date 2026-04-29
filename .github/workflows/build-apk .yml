@@ -154,10 +154,10 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > /tmp/poketbook-release.keystore
           echo "Keystore size: $(stat -c%s /tmp/poketbook-release.keystore) bytes"
- 
-      - name: Fix build.gradle after cap sync
-        run: |
-          cat > frontend/android/app/build.gradle << 'GRADLE_EOF'
+
+      - name: Restore build.gradle after cap sync
+        run:  git checkout frontend/android/app/build.gradle
+      
           apply plugin: 'com.android.application'
  
           android {
