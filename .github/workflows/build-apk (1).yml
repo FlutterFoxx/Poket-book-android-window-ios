@@ -23,7 +23,7 @@ on:
 
 env:
   REACT_APP_BACKEND_URL: https://party-tally-1.preview.emergentagent.com
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
   JAVA_VERSION: '17'
   BUNDLE_ID: 'in.poketbook.app'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
