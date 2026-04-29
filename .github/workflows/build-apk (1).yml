@@ -233,14 +233,19 @@ jobs:
         run: chmod +x gradlew
  
       - name: Decode Android keystore
+       - name: Decode Android keystore
         run: |
-          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > frontend/android/app/poketbook-release.keystore
-          echo "Keystore saved. Size: $(stat -c%s frontend/android/app/poketbook-release.keystore) bytes"
+          KEYSTORE_DIR="${{ github.workspace }}/frontend/android/app"
+          KEYSTORE_FILE="${KEYSTORE_DIR}/poketbook-release.keystore"
+          echo "Saving keystore to: $KEYSTORE_FILE"
+          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > "$KEYSTORE_FILE"
+          echo "Keystore size: $(stat -c%s $KEYSTORE_FILE) bytes"
+          echo "KEYSTORE_FILE=$KEYSTORE_FILE" >> $GITHUB_ENV
  
       - name: Build signed Release AAB + APK
         working-directory: ./frontend/android
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
+          KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }}         
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
