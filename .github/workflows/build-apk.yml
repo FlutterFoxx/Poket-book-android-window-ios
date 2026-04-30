@@ -132,12 +132,12 @@ jobs:
         env:
           VERSION_CODE:      ${{ needs.version.outputs.version_code }}
           VERSION_NAME:      ${{ needs.version.outputs.version_name }}
-          KEYSTORE_PATH:     app/poketbook-release.keystore
+          KEYSTORE_PATH:     ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "app/poketbook-release.keystore" ]; then
+          if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "$KEYSTORE_PATH" ]; then
             echo "✅ Secrets present — building SIGNED Release AAB + APK"
             ./gradlew bundleRelease --no-daemon
             ./gradlew assembleRelease --no-daemon
