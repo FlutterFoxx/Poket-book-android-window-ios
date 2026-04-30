@@ -127,7 +127,7 @@ jobs:
           echo "Keystore decoded: $(stat -c%s frontend/android/app/poketbook-release.keystore) bytes"
 
       # Smart build: signed release if secrets available, debug APK as fallback
-      - name: Build Android (smart: release if secrets, debug if not)
+      - name: "Build Android (signed release if secrets, debug fallback)"
         working-directory: ./frontend/android
         env:
           VERSION_CODE:      ${{ needs.version.outputs.version_code }}
