@@ -125,6 +125,7 @@ Build a mobile-first, high-speed ledger accounting application (PoketBook / Udha
 
 ### P0 (Critical)
 - [x] GitHub Actions signed APK/AAB build — FIXED April 30
+- [x] Mobile UX: curtain entry panel, BalanceSheet header buttons, ExportPage mobile layout — April 30
 
 ### P1 (High Priority)
 - [ ] Emergent AI Layer: Voice/NL entry ("Vansh ko 500 dena hai")
