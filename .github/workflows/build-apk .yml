@@ -235,7 +235,7 @@ jobs:
       - name: Build signed Release AAB + APK
         working-directory: ./frontend/android
         env:
-          KEYSTORE_PATH: /tmp/poketbook-release.keystore
+          KEYSTORE_PATH: frontend/android/app/poketbook-release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
