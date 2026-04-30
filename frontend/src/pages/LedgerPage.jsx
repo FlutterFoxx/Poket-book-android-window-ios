@@ -425,7 +425,7 @@ const LedgerPage = () => {
         </div>
       )}
 
-      {/* ── Ledger Table (horizontally scrollable on mobile) ──────── */}
+      {/* ── Ledger Content ─────────────────────────────────────────── */}
       {selectedId && (
         <div className="flex-1 overflow-auto" style={{ background: "var(--bg-page)" }} ref={tableContainerRef}>
           {loading ? (
@@ -433,7 +433,56 @@ const LedgerPage = () => {
               <div className="w-8 h-8 border-4 border-stone-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
-            <div className="overflow-x-auto min-w-full">
+            <>
+              {/* MOBILE: Card view < md */}
+              <div className="block md:hidden p-3 space-y-3">
+                {entries.length === 0 ? (
+                  <div className="pk-card text-center py-10">
+                    <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Koi entry nahi hai — neeche se add karein</p>
+                  </div>
+                ) : entries.map((e) => (
+                  <div key={e.id} className="pk-card" data-testid={`ledger-row-${e.id}`}
+                    style={{ borderLeft: `3px solid ${e.naam > 0 ? "var(--lena)" : "var(--dena)"}` }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"8px" }}>
+                      <div>
+                        <div style={{ fontSize:"13px", fontWeight:600, fontFamily:"var(--font-mono)", color:"var(--text-primary)" }}>{formatDate(e.date)}</div>
+                        {e.created_at && <div style={{ fontSize:"11px", color:"var(--text-tertiary)", fontFamily:"var(--font-mono)" }}>{formatTime(e.created_at)}</div>}
+                      </div>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontSize:"15px", fontWeight:700, fontFamily:"var(--font-mono)", color: e.balance > 0 ? "var(--dena)" : e.balance < 0 ? "var(--lena)" : "var(--text-tertiary)" }}>
+                          ₹{Math.abs(e.balance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </div>
+                        {e.is_locked && <span style={{ fontSize:"10px", background:"var(--warning-bg)", color:"var(--warning)", padding:"2px 6px", borderRadius:"8px", fontWeight:600 }}>Locked ★</span>}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: e.narration ? "8px" : "0" }}>
+                      <span style={{ fontSize:"14px", fontWeight:600, color:"var(--dena)" }}>{toTitleCase(e.counterparty_name || "—")}</span>
+                      <div>
+                        {e.naam > 0 && <span style={{ fontSize:"14px", fontWeight:700, fontFamily:"var(--font-mono)", color:"var(--lena)" }}>Credit ₹{e.naam.toLocaleString("en-IN",{minimumFractionDigits:2})}</span>}
+                        {e.jama > 0 && <span style={{ fontSize:"14px", fontWeight:700, fontFamily:"var(--font-mono)", color:"#166534" }}>Debit ₹{e.jama.toLocaleString("en-IN",{minimumFractionDigits:2})}</span>}
+                      </div>
+                    </div>
+                    {e.narration && (
+                      <div style={{ fontSize:"13px", color:"var(--text-secondary)", fontStyle:"italic", padding:"6px 10px", background:"var(--bg-page)", borderRadius:"6px", marginBottom:"8px" }}>
+                        "{e.narration}"
+                      </div>
+                    )}
+                    {!e.is_locked && (
+                      <div style={{ borderTop:"0.5px solid var(--border)", paddingTop:"8px", display:"flex", gap:"8px", justifyContent:"flex-end" }}>
+                        <button onClick={()=>{setEditEntry(e);setEditForm({date:e.date,naam:e.naam||"",jama:e.jama||"",narration:e.narration||""});}}
+                          style={{ background:"var(--info-bg)", border:"none", borderRadius:"8px", padding:"6px 14px", color:"var(--info)", fontSize:"13px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"4px" }}
+                          data-testid={`edit-entry-${e.id}`}><Pencil size={13} /> Edit</button>
+                        <button onClick={()=>setDeleteEntry(e)}
+                          style={{ background:"var(--danger-bg)", border:"none", borderRadius:"8px", padding:"6px 14px", color:"var(--danger)", fontSize:"13px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"4px" }}
+                          data-testid={`delete-entry-${e.id}`}><Trash2 size={13} /> Delete</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* DESKTOP: Table view md+ */}
+              <div className="hidden md:block overflow-x-auto min-w-full">
               <table className="min-w-[700px] w-full border-collapse" data-testid="ledger-table">
                 <thead className="sticky top-0 z-10">
                   <tr style={{ background: "var(--primary)" }} className="text-white">
@@ -526,107 +575,171 @@ const LedgerPage = () => {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}
 
-      {/* ── Fast Entry Row (responsive) ───────────────────────────── */}
+      {/* ── Fast Entry Panel ─────────────────────────────────────────── */}
       {selectedId && (
-        <div className="flex-shrink-0 border-t-2 border-stone-600" style={{ background: "var(--primary)" }} data-testid="fast-entry-row">
-          <div className="flex flex-wrap items-end gap-2 px-3 sm:px-4 py-2 sm:py-3">
+        <div className="flex-shrink-0" style={{ background: "var(--primary)" }} data-testid="fast-entry-row">
 
-            {/* Date + Live Clock */}
+          {/* ── MOBILE: Clean card form < md ──────────────────────────── */}
+          <div className="block md:hidden p-3">
+            <div className="pk-card" style={{ padding: "0", overflow: "hidden" }}>
+              {/* Header */}
+              <div style={{ background: "var(--primary)", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#fff", fontWeight: 600, fontSize: "14px" }}>New Entry</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.15)", borderRadius: "8px", padding: "4px 10px" }}>
+                  <div style={{ width: "6px", height: "6px", background: "#22C55E", borderRadius: "50%" }} className="animate-pulse" />
+                  <span style={{ color: "#fff", fontSize: "12px", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+                    {liveTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
+                  </span>
+                </div>
+              </div>
+              {/* Form body */}
+              <div style={{ padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                {/* Row 1: Date + Party */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div>
+                    <label className="pk-label">Date</label>
+                    <input type="date" value={fastEntry.date} onChange={(e) => setFastEntry((p) => ({ ...p, date: e.target.value }))}
+                      onKeyDown={(e) => handleFastKeyDown(e, naamRef)} tabIndex={1}
+                      className="pk-input" style={{ fontFamily: "var(--font-mono)", fontSize: "13px" }} data-testid="fast-entry-date" />
+                  </div>
+                  <div>
+                    <label className="pk-label">Party Name</label>
+                    <div style={{ position: "relative" }}>
+                      <select ref={partySelectRef} value={fastEntry.partyId} onChange={(e) => handleFastPartyChange(e.target.value)}
+                        onKeyDown={(e) => handleFastKeyDown(e, naamRef)} tabIndex={0}
+                        className="pk-input" style={{ appearance: "none", paddingRight: "28px", fontSize: "13px", fontWeight: 600 }}
+                        data-testid="fast-entry-party-select">
+                        <option value="">Select party</option>
+                        {parties.filter((p) => p.id !== selectedId).map((p) => <option key={p.id} value={p.id}>{toTitleCase(p.name)}</option>)}
+                      </select>
+                      <ChevronDown size={14} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", pointerEvents: "none" }} />
+                    </div>
+                  </div>
+                </div>
+                {/* Row 2: Naam + Jama */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div>
+                    <label className="pk-label" style={{ color: "var(--lena)" }}>Credit (नाम)</label>
+                    <div style={{ position: "relative" }}>
+                      <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--lena)", fontWeight: 700, fontSize: "14px" }}>₹</span>
+                      <input ref={naamRef} type="number" step="0.01" min="0" value={fastEntry.naam}
+                        onChange={(e) => setFastEntry((p) => ({ ...p, naam: e.target.value }))}
+                        onKeyDown={(e) => handleFastKeyDown(e, jamaRef)} tabIndex={2} placeholder="0.00"
+                        className="pk-input" style={{ paddingLeft: "28px", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--lena)", textAlign: "right" }}
+                        data-testid="fast-entry-naam-input" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="pk-label" style={{ color: "#166534" }}>Debit (जमा)</label>
+                    <div style={{ position: "relative" }}>
+                      <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#166534", fontWeight: 700, fontSize: "14px" }}>₹</span>
+                      <input ref={jamaRef} type="number" step="0.01" min="0" value={fastEntry.jama}
+                        onChange={(e) => setFastEntry((p) => ({ ...p, jama: e.target.value }))}
+                        onKeyDown={(e) => handleFastKeyDown(e, narrationRef)} tabIndex={3} placeholder="0.00"
+                        className="pk-input" style={{ paddingLeft: "28px", fontFamily: "var(--font-mono)", fontWeight: 700, color: "#166534", textAlign: "right" }}
+                        data-testid="fast-entry-jama-input" />
+                    </div>
+                  </div>
+                </div>
+                {/* Row 3: Narration */}
+                <div>
+                  <label className="pk-label">Narration / Vivaran</label>
+                  <input ref={narrationRef} type="text" value={fastEntry.narration}
+                    onChange={(e) => setFastEntry((p) => ({ ...p, narration: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSave(); } else if (e.key === "Tab") { e.preventDefault(); saveRef.current?.focus(); } }}
+                    tabIndex={4} placeholder="Optional: describe this entry..."
+                    className="pk-input" data-testid="fast-entry-narration-input" />
+                </div>
+                {/* Row 4: Save button */}
+                <button ref={saveRef} onClick={handleSave} disabled={saving} tabIndex={5}
+                  className="pk-btn pk-btn--success" style={{ width: "100%", fontSize: "15px", minHeight: "48px", borderRadius: "var(--radius-sm)" }}
+                  data-testid="fast-entry-save-btn">
+                  {saving ? "Saving..." : "Save Entry (OK)"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── DESKTOP: Horizontal bar md+ ───────────────────────────── */}
+          <div className="hidden md:flex flex-wrap items-end gap-2 px-4 py-3">
+            {/* Live Clock */}
             <div className="flex flex-col gap-1">
-              {/* Live time display — updates every second */}
               <div className="flex items-center gap-1.5 bg-black/25 rounded px-2 py-1 border border-white/20">
-                <div className="text-white font-mono text-xs font-bold tracking-wide">
+                <div className="text-white font-mono text-xs font-bold">
                   {liveTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
                 </div>
-                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" title="Live" />
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
               </div>
               <input type="date" value={fastEntry.date} onChange={(e) => setFastEntry((p) => ({ ...p, date: e.target.value }))}
                 onKeyDown={(e) => handleFastKeyDown(e, naamRef)} tabIndex={1}
-                className="border-2 border-stone-600 px-2 py-1.5 text-sm sm:text-base font-mono bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-36 sm:w-40"
+                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-36 sm:w-40"
                 data-testid="fast-entry-date" />
               <span className="text-xs font-bold text-white text-center">Date</span>
             </div>
-
             {/* Party */}
             <div className="flex flex-col gap-1">
               <div className="relative">
-                <select
-                  ref={partySelectRef}
-                  value={fastEntry.partyId}
-                  onChange={(e) => handleFastPartyChange(e.target.value)}
-                  onKeyDown={(e) => handleFastKeyDown(e, naamRef)}
-                  tabIndex={0}
-                  className="appearance-none border-2 border-stone-600 px-2 py-1.5 text-sm sm:text-base font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-36 sm:w-44 pr-6"
+                <select ref={partySelectRef} value={fastEntry.partyId} onChange={(e) => handleFastPartyChange(e.target.value)}
+                  onKeyDown={(e) => handleFastKeyDown(e, naamRef)} tabIndex={0}
+                  className="appearance-none border-2 border-stone-600 px-2 py-1.5 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-44 pr-6"
                   data-testid="fast-entry-party-select">
                   <option value="">-- Party --</option>
-                  {parties.filter((p) => p.id !== selectedId).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {parties.filter((p) => p.id !== selectedId).map((p) => <option key={p.id} value={p.id}>{toTitleCase(p.name)}</option>)}
                 </select>
                 <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" />
               </div>
               <span className="text-xs font-bold text-white text-center">Party Name</span>
             </div>
-
             {/* Naam */}
             <div className="flex flex-col gap-1">
               <input ref={naamRef} type="number" step="0.01" min="0" value={fastEntry.naam}
                 onChange={(e) => setFastEntry((p) => ({ ...p, naam: e.target.value }))}
                 onKeyDown={(e) => handleFastKeyDown(e, jamaRef)} tabIndex={2} placeholder="0.00"
-                className="border-2 border-stone-600 px-2 py-1.5 text-sm sm:text-base font-mono bg-white focus:outline-none focus:ring-2 focus:ring-red-600 w-24 sm:w-28 text-right"
+                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-red-600 w-28 text-right"
                 data-testid="fast-entry-naam-input" />
-              <span className="text-xs font-bold text-white text-center">नाम</span>
+              <span className="text-xs font-bold text-white text-center">नाम (Credit)</span>
             </div>
-
             {/* Jama */}
             <div className="flex flex-col gap-1">
               <input ref={jamaRef} type="number" step="0.01" min="0" value={fastEntry.jama}
                 onChange={(e) => setFastEntry((p) => ({ ...p, jama: e.target.value }))}
                 onKeyDown={(e) => handleFastKeyDown(e, narrationRef)} tabIndex={3} placeholder="0.00"
-                className="border-2 border-stone-600 px-2 py-1.5 text-sm sm:text-base font-mono bg-white focus:outline-none focus:ring-2 focus:ring-green-700 w-24 sm:w-28 text-right"
+                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-green-700 w-28 text-right"
                 data-testid="fast-entry-jama-input" />
-              <span className="text-xs font-bold text-white text-center">जमा</span>
+              <span className="text-xs font-bold text-white text-center">जमा (Debit)</span>
             </div>
-
             {/* Narration */}
             <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
               <input ref={narrationRef} type="text" value={fastEntry.narration}
                 onChange={(e) => setFastEntry((p) => ({ ...p, narration: e.target.value }))}
-                onKeyDown={(e) => handleFastKeyDown(e, saveRef)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSave(); } else if (e.key === "Tab") { e.preventDefault(); saveRef.current?.focus(); } }}
                 tabIndex={4} placeholder="Narration..."
-                className="w-full border-2 border-stone-600 px-2 py-1.5 text-sm sm:text-base bg-white focus:outline-none focus:ring-2 focus:ring-stone-900"
+                className="border-2 border-stone-600 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-stone-900"
                 data-testid="fast-entry-narration-input" />
               <span className="text-xs font-bold text-white text-center">Narration</span>
             </div>
-
-            {/* OK button only — Enter on OK posts the entry */}
+            {/* OK */}
             <div className="flex flex-col gap-1.5 pb-5">
-              <button
-                ref={saveRef}
-                onClick={handleSave}
-                disabled={saving}
-                tabIndex={5}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSave(); } }}
-                className="px-4 sm:px-6 py-1.5 sm:py-2 bg-white border-2 border-stone-700 text-stone-900 text-sm sm:text-base font-bold hover:bg-stone-100 disabled:opacity-50 min-w-[70px]"
-                data-testid="fast-entry-save-btn">
-                {saving ? "..." : "OK"}
-              </button>
+              <button ref={saveRef} onClick={handleSave} disabled={saving} tabIndex={5}
+                className="px-6 py-2 bg-white border-2 border-stone-700 text-stone-900 text-sm font-bold hover:bg-stone-100 disabled:opacity-50"
+                data-testid="fast-entry-save-btn">{saving ? "..." : "OK"}</button>
             </div>
           </div>
-
-          <div className="px-3 sm:px-4 py-1 flex items-center gap-3 sm:gap-6 text-xs text-white border-t border-orange-700" style={{ background: "rgba(0,0,0,0.2)" }}>
+          {/* Status strip */}
+          <div className="px-4 py-1 flex items-center gap-6 text-xs text-white border-t border-white/10" style={{ background: "rgba(0,0,0,0.2)" }}>
             <span className="font-bold">Entries: {entries.length}</span>
-            <span>|</span>
-            <span className="font-bold">Locked: {entries.filter(e => e.is_locked).length}</span>
-            <span>|</span>
-            <span className="font-bold">Open: {unlocked}</span>
+            <span>|</span><span className="font-bold">Locked: {entries.filter(e => e.is_locked).length}</span>
+            <span>|</span><span className="font-bold">Open: {unlocked}</span>
           </div>
         </div>
       )}
 
-      {/* ── Edit Modal ────────────────────────────────────────────── */}
+            {/* ── Edit Modal ────────────────────────────────────────────── */}
       {editEntry && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white shadow-2xl w-full max-w-lg border-2 border-stone-500" data-testid="edit-entry-modal">

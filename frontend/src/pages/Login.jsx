@@ -3,7 +3,60 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Eye, EyeOff, Phone, Mail } from "lucide-react";
+import { Eye, EyeOff, Phone, Mail, ArrowLeft } from "lucide-react";
+
+const ForgotPasswordForm = ({ onBack }) => {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.post("/api/auth/forgot-password", { email });
+      setSent(true);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Something went wrong");
+    }
+    setLoading(false);
+  };
+
+  if (sent) return (
+    <div className="text-center space-y-4">
+      <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
+        <span className="text-3xl">📧</span>
+      </div>
+      <h3 className="text-xl font-bold text-white">Check Your Email</h3>
+      <p className="text-sm text-gray-400">If <strong className="text-white">{email}</strong> is registered, a reset link has been sent.</p>
+      <button onClick={onBack} className="text-sm text-blue-400 hover:text-blue-300">← Back to Login</button>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={onBack} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "8px", padding: "6px 10px", cursor: "pointer", color: "#fff", fontSize: "13px", display: "flex", alignItems: "center", gap: "4px" }}>
+          <ArrowLeft size={14} /> Back
+        </button>
+        <h2 className="text-2xl font-bold text-white">Reset Password</h2>
+      </div>
+      <p className="text-sm text-gray-500 mb-6">Apna email dalein — reset link bheja jaayega</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Email Address</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+            placeholder="apna@email.com"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-600" />
+        </div>
+        <button type="submit" disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+          {loading ? "Sending..." : "Send Reset Link"}
+        </button>
+      </form>
+    </>
+  );
+};
 
 const Login = () => {
   const [tab, setTab] = useState("email"); // 'email' | 'phone'
@@ -11,7 +64,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [mode, setMode] = useState("login"); // 'login' | 'register'
+  const [mode, setMode] = useState("login"); // 'login' | 'register' | 'forgot'
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -105,7 +158,7 @@ const Login = () => {
           </div>
 
           {/* Email Form */}
-          {tab === "email" && (
+          {tab === "email" && mode !== "forgot" && (
             <>
               <h2 className="text-2xl font-bold text-white mb-1">{mode === "login" ? "Login Karein" : "Register Karein"}</h2>
               <p className="text-sm text-gray-500 mb-6">{mode === "login" ? "Apna account open karein" : "15-day free trial shuru karein"}</p>
@@ -139,13 +192,23 @@ const Login = () => {
                   {loading ? "Please wait..." : mode === "login" ? "Login Karein" : "Register FREE — 7-Day Trial"}
                 </button>
               </form>
-              <div className="mt-4 text-center">
+              <div className="mt-4 text-center space-y-2">
                 <button onClick={() => setMode(m => m === "login" ? "register" : "login")}
-                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors" data-testid="toggle-auth-mode-btn">
-                  {mode === "login" ? "Naya account? Register karein (15-day trial free!)" : "Already registered? Login karein"}
+                  className="block w-full text-sm text-blue-400 hover:text-blue-300 transition-colors" data-testid="toggle-auth-mode-btn">
+                  {mode === "login" ? "Naya account? Register karein (7-day free trial!)" : "Already registered? Login karein"}
                 </button>
+                {mode === "login" && (
+                  <button onClick={() => setMode("forgot")} className="block w-full text-sm text-gray-500 hover:text-gray-300 transition-colors">
+                    Password bhool gaye? Reset karein
+                  </button>
+                )}
               </div>
             </>
+          )}
+
+          {/* Forgot Password Form */}
+          {tab === "email" && mode === "forgot" && (
+            <ForgotPasswordForm onBack={() => setMode("login")} />
           )}
 
           {/* Phone OTP Form */}

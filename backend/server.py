@@ -323,6 +323,79 @@ async def logout(response: Response):
     response.delete_cookie("refresh_token", path="/")
     return {"message": "Logged out"}
 
+@api_router.post("/auth/change-password")
+async def change_password(request: Request):
+    """Change password — requires current password verification"""
+    body = await request.json()
+    current_password = body.get("current_password", "")
+    new_password = body.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(400, "New password must be at least 6 characters")
+    # Get user from token
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    try:
+        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
+        user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
+        if not user:
+            raise HTTPException(404, "User not found")
+        if not user.get("password_hash"):
+            raise HTTPException(400, "Phone-only accounts cannot use password change. Please use Phone OTP login.")
+        if not verify_password(current_password, user["password_hash"]):
+            raise HTTPException(400, "Current password is incorrect")
+        await db.users.update_one({"_id": user["_id"]}, {"$set": {"password_hash": hash_password(new_password)}})
+        return {"message": "Password changed successfully"}
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Invalid token")
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: Request):
+    """Generate a temporary reset token (send via email in production)"""
+    body = await request.json()
+    email = body.get("email", "").lower()
+    if not email:
+        raise HTTPException(400, "Email is required")
+    user = await db.users.find_one({"email": email})
+    # Always return success to prevent email enumeration
+    if user:
+        import secrets as sec
+        reset_token = sec.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        await db.password_resets.insert_one({"email": email, "token": reset_token, "expires_at": expires_at, "used": False})
+        # TODO: Send email with reset link: /reset-password?token={reset_token}
+        # In dev mode, log the token
+        if os.environ.get("ADMIN_EMAIL") == email:
+            logging.info(f"DEV reset token for {email}: {reset_token}")
+    return {"message": "If this email is registered, a reset link has been sent."}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(request: Request):
+    """Reset password using the token from forgot-password"""
+    body = await request.json()
+    token = body.get("token", "")
+    new_password = body.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    reset_doc = await db.password_resets.find_one({"token": token, "used": False})
+    if not reset_doc:
+        raise HTTPException(400, "Invalid or expired reset token")
+    expires = reset_doc["expires_at"]
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires:
+        raise HTTPException(400, "Reset token has expired. Please request a new one.")
+    user = await db.users.find_one({"email": reset_doc["email"]})
+    if not user:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"password_hash": hash_password(new_password)}})
+    await db.password_resets.update_one({"token": token}, {"$set": {"used": True}})
+    return {"message": "Password reset successfully. You can now login with your new password."}
+
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user

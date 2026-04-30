@@ -15,6 +15,8 @@ import LedgerPage from "@/pages/LedgerPage";
 import BalanceSheet from "@/pages/BalanceSheet";
 import ExportPage from "@/pages/ExportPage";
 
+import SettingsPage from "@/pages/SettingsPage";
+
 const Layout = ({ children }) => (
   <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-page)" }}>
     <Navbar />
@@ -52,6 +54,7 @@ function App() {
           <Route path="/ledger/:partyId" element={<ProtectedRoute><Layout><LedgerPage /></Layout></ProtectedRoute>} />
           <Route path="/balance-sheet" element={<ProtectedRoute><Layout><BalanceSheet /></Layout></ProtectedRoute>} />
           <Route path="/export" element={<ProtectedRoute><Layout><ExportPage /></Layout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

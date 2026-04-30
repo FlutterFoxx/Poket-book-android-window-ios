@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Users, BookOpen, Scale, FileText,
-  LogOut, ChevronDown, Menu, X,
+  LogOut, ChevronDown, Menu, X, Settings,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 
@@ -12,6 +12,7 @@ const navItems = [
   { path: "/ledger", label: "Ledger / Bahi", icon: BookOpen, testId: "ledger" },
   { path: "/balance-sheet", label: "Balance Sheet", icon: Scale, testId: "balance-sheet" },
   { path: "/export", label: "Statement", icon: FileText, testId: "export" },
+  { path: "/settings", label: "Settings", icon: Settings, testId: "settings" },
 ];
 
 // ── UserMenu — extracted sub-component (reduces Navbar complexity) ────────────
