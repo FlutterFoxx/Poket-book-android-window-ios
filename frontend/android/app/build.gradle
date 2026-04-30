@@ -7,53 +7,35 @@ android {
         applicationId "in.poketbook.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Version injected by GitHub Actions env vars; safe defaults for local dev
-        versionCode (System.getenv("VERSION_CODE") ?: "1").toInteger()
-        versionName System.getenv("VERSION_NAME") ?: "1.0.0"
+        versionCode 1
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-
-    // Signing config — only defined when ALL secrets are present AND keystore file exists.
-    // If any value is missing the block is skipped and release builds are unsigned/debug.
-    def keystorePath     = System.getenv("KEYSTORE_PATH")     ?: ""
-    def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-    def keyAlias         = System.getenv("KEY_ALIAS")         ?: ""
-    def keyPassword      = System.getenv("KEY_PASSWORD")      ?: ""
-    def hasSigningConfig = keystorePath && keystorePassword && keyAlias && keyPassword &&
-                           file(keystorePath).exists()
-
-    if (hasSigningConfig) {
-        signingConfigs {
-            release {
-                storeFile     file(keystorePath)
-                storePassword keystorePassword
-                keyAlias      keyAlias
-                keyPassword   keyPassword
+    signingConfigs {
+        release {
+            def ksPath = System.getenv("KEYSTORE_PATH")
+            if (ksPath && new File(ksPath).exists()) {
+                storeFile new File(ksPath)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
             }
         }
     }
-
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // Apply signing only when config was successfully created above
-            if (hasSigningConfig) {
-                signingConfig signingConfigs.release
-            }
-        }
-        debug {
-            applicationIdSuffix ".debug"
-            versionNameSuffix "-debug"
         }
     }
 }
 
 repositories {
-    flatDir{
+    flatDir {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
@@ -78,5 +60,5 @@ try {
         apply plugin: 'com.google.gms.google-services'
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.info("google-services.json not found, google-services plugin not applied.")
 }
