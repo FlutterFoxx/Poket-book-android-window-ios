@@ -95,7 +95,7 @@ const BalanceSheet = () => {
     <div className="flex flex-col h-full" style={{ fontFamily: "'Work Sans', sans-serif" }}>
 
       {/* ── Red Header Bar ─────────────────────────────────────────── */}
-      <div className="flex-shrink-0 text-white px-5 py-2 flex items-center gap-6" style={{ background: "#0F172A" }}>
+      <div className="flex-shrink-0 text-white px-5 py-2 flex items-center gap-6" style={{ background: "var(--primary-gradient)" }}>
         <h1 className="text-xl font-bold tracking-wide" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
           Settling Report / Balance Sheet
         </h1>

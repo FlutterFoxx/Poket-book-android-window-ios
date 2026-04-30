@@ -316,7 +316,7 @@ const LedgerPage = () => {
     <div className="flex flex-col h-full" style={{ fontFamily: "'Work Sans', sans-serif" }}>
 
       {/* ── Red Title Bar — balance removed (shown only in control bar) ── */}
-      <div className="flex-shrink-0 text-white px-3 sm:px-5 py-2 flex items-center gap-2 sm:gap-5 flex-wrap" style={{ background: "#0F172A" }}>
+      <div className="flex-shrink-0 text-white px-3 sm:px-5 py-2 flex items-center gap-2 sm:gap-5 flex-wrap" style={{ background: "var(--primary-gradient)" }}>
         <span className="text-base sm:text-xl font-bold tracking-wide" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
           Settling Entry
         </span>
@@ -416,7 +416,7 @@ const LedgerPage = () => {
 
       {/* ── No party message ──────────────────────────────────────── */}
       {!selectedId && (
-        <div className="flex-1 flex items-center justify-center" style={{ background: "#FFF5E6" }}>
+        <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-page)" }}>
           <div className="text-center px-4">
             <BookOpen size={48} className="text-stone-300 mx-auto mb-4" />
             <h2 className="text-xl sm:text-2xl font-semibold text-stone-500 mb-2">Party Select Karein</h2>
@@ -427,7 +427,7 @@ const LedgerPage = () => {
 
       {/* ── Ledger Table (horizontally scrollable on mobile) ──────── */}
       {selectedId && (
-        <div className="flex-1 overflow-auto" style={{ background: "#FFF5E6" }} ref={tableContainerRef}>
+        <div className="flex-1 overflow-auto" style={{ background: "var(--bg-page)" }} ref={tableContainerRef}>
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="w-8 h-8 border-4 border-stone-600 border-t-transparent rounded-full animate-spin" />
@@ -436,7 +436,7 @@ const LedgerPage = () => {
             <div className="overflow-x-auto min-w-full">
               <table className="min-w-[700px] w-full border-collapse" data-testid="ledger-table">
                 <thead className="sticky top-0 z-10">
-                  <tr style={{ background: "#8B4513" }} className="text-white">
+                  <tr style={{ background: "var(--primary)" }} className="text-white">
                     <th className="px-2 sm:px-3 py-2.5 sm:py-3 text-center border-r border-amber-900 w-8 sm:w-10">
                       <input type="checkbox" className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-amber-400 cursor-pointer"
                         checked={entries.filter(e => !e.is_locked).length > 0 && entries.filter(e => !e.is_locked).every(e => selectedEntries.has(e.id))}
@@ -472,7 +472,7 @@ const LedgerPage = () => {
                   )}
                   {entries.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="text-center py-16 text-stone-600 text-base" style={{ background: "#FFE0C0" }}>
+                      <td colSpan={10} className="text-center py-16 text-stone-600 text-base" style={{ background: "var(--bg-page)" }}>
                         Koi entry nahi hai — neeche se pehli entry add karein
                       </td>
                     </tr>
@@ -532,7 +532,7 @@ const LedgerPage = () => {
 
       {/* ── Fast Entry Row (responsive) ───────────────────────────── */}
       {selectedId && (
-        <div className="flex-shrink-0 border-t-2 border-stone-600" style={{ background: "#FF8C00" }} data-testid="fast-entry-row">
+        <div className="flex-shrink-0 border-t-2 border-stone-600" style={{ background: "var(--primary)" }} data-testid="fast-entry-row">
           <div className="flex flex-wrap items-end gap-2 px-3 sm:px-4 py-2 sm:py-3">
 
             {/* Date + Live Clock */}
@@ -630,7 +630,7 @@ const LedgerPage = () => {
       {editEntry && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white shadow-2xl w-full max-w-lg border-2 border-stone-500" data-testid="edit-entry-modal">
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b" style={{ background: "#8B4513" }}>
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b" style={{ background: "var(--primary)" }}>
               <h2 className="text-base sm:text-lg font-bold text-white">Entry Modify</h2>
               <button onClick={() => setEditEntry(null)}><X size={18} className="text-white" /></button>
             </div>
@@ -659,7 +659,7 @@ const LedgerPage = () => {
               </div>
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setEditEntry(null)} className="flex-1 border-2 border-stone-400 text-stone-700 py-2 text-sm font-semibold bg-white hover:bg-stone-50 rounded">Cancel</button>
-                <button onClick={handleEditSave} disabled={saving} className="flex-1 text-white py-2 text-sm font-bold rounded disabled:opacity-50" style={{ background: "#8B4513" }} data-testid="edit-entry-save-btn">
+                <button onClick={handleEditSave} disabled={saving} className="flex-1 text-white py-2 text-sm font-bold rounded disabled:opacity-50" style={{ background: "var(--primary)" }} data-testid="edit-entry-save-btn">
                   {saving ? "Saving..." : "Modify / Save"}
                 </button>
               </div>
@@ -687,7 +687,7 @@ const LedgerPage = () => {
       {tallyConfirm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white shadow-2xl w-full max-w-md border-2 border-amber-600" data-testid="tally-confirm-modal">
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b" style={{ background: "#FF8C00" }}>
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b" style={{ background: "var(--primary)" }}>
               <h3 className="text-base sm:text-lg font-bold text-white">Tally / Lock Karein?</h3>
               <Lock size={18} className="text-white" />
             </div>
@@ -697,7 +697,7 @@ const LedgerPage = () => {
               <div className="bg-amber-50 border border-amber-400 rounded p-3 mb-4 text-xs text-amber-800">Lock hone ke baad entries edit nahi ho sakti.</div>
               <div className="flex gap-3">
                 <button onClick={() => setTallyConfirm(false)} className="flex-1 border-2 border-stone-400 text-stone-700 py-2 text-sm font-semibold bg-white hover:bg-stone-50 rounded" data-testid="tally-cancel-btn">Cancel</button>
-                <button onClick={handleTally} className="flex-1 text-white py-2 text-sm font-bold rounded" style={{ background: "#FF8C00" }} data-testid="tally-confirm-btn">Lock Karein</button>
+                <button onClick={handleTally} className="flex-1 text-white py-2 text-sm font-bold rounded" style={{ background: "var(--primary)" }} data-testid="tally-confirm-btn">Lock Karein</button>
               </div>
             </div>
           </div>

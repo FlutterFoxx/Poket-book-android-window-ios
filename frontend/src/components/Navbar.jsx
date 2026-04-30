@@ -81,8 +81,8 @@ const NavLinks = ({ isActive }) => (
         data-testid={`nav-${item.testId}`}
         className={`flex items-center gap-1.5 px-3 lg:px-4 h-12 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
           isActive(item.path)
-            ? "bg-blue-700 border-blue-400 text-white"
-            : "border-transparent text-gray-300 hover:bg-white/10 hover:text-white"
+            ? "border-white text-white"
+            : "border-transparent text-white/70 hover:bg-white/10 hover:text-white"
         }`}
       >
         <item.icon size={14} />
@@ -111,7 +111,7 @@ const Navbar = () => {
   return (
     <header
       className="flex-shrink-0 text-white shadow-md z-40 relative"
-      style={{ background: "#0F172A" }}
+      style={{ background: "var(--primary-gradient)" }}
       data-testid="header-nav"
     >
       <div className="flex items-center h-12 px-4 gap-0">
@@ -142,7 +142,7 @@ const Navbar = () => {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-white/10 bg-blue-900" data-testid="mobile-menu">
+        <div className="md:hidden border-t border-white/10 var(--primary-dark)" data-testid="mobile-menu">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
             <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
               {user?.name?.[0]?.toUpperCase() || "U"}

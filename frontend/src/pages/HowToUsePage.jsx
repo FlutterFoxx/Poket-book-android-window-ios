@@ -384,7 +384,7 @@ const HowToUsePage = () => {
       </nav>
 
       {/* Header */}
-      <section className="py-14 px-4 text-center" style={{ background: "linear-gradient(135deg, #0F172A 0%, #0A1628 100%)" }}>
+      <section className="py-14 px-4 text-center" style={{ background: "var(--primary-gradient)" }}>
         <div className="max-w-3xl mx-auto">
           <img src={LOGO} alt="poketbook" className="w-16 h-16 mx-auto mb-4 object-contain" />
           <h1 className="text-3xl sm:text-4xl font-black mb-3" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>

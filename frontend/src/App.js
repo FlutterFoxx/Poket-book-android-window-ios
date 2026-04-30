@@ -16,9 +16,9 @@ import BalanceSheet from "@/pages/BalanceSheet";
 import ExportPage from "@/pages/ExportPage";
 
 const Layout = ({ children }) => (
-  <div className="flex flex-col h-screen overflow-hidden" style={{ background: "#F8FAFC" }}>
+  <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-page)" }}>
     <Navbar />
-    <main className="flex-1 overflow-auto">{children}</main>
+    <main className="flex-1 overflow-auto" style={{ background: "var(--bg-page)" }}>{children}</main>
   </div>
 );
 

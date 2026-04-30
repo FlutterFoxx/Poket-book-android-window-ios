@@ -3,19 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
-import { Users, TrendingDown, TrendingUp, Activity, BookOpen, ArrowRight, RefreshCw } from "lucide-react";
-
-const StatCard = ({ title, value, colorClass, bgClass, icon: Icon, testId }) => (
-  <div className={`bg-white border border-stone-200 rounded-lg p-5 ${bgClass}`} data-testid={testId}>
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-xs text-stone-500 font-medium uppercase tracking-wide mb-1">{title}</p>
-        <p className={`text-xl font-bold font-mono ${colorClass}`}>{value}</p>
-      </div>
-      <div className={`p-2 rounded-md ${bgClass || "bg-stone-100"}`}><Icon size={18} className={colorClass} /></div>
-    </div>
-  </div>
-);
+import { toast } from "sonner";
+import { RefreshCw, Plus, ArrowRight, TrendingUp, TrendingDown, Users, IndianRupee } from "lucide-react";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -27,88 +16,153 @@ const Dashboard = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [bsRes, partiesRes] = await Promise.all([api.get("/api/balance-sheet"), api.get("/api/parties")]);
+      const [bsRes, partiesRes] = await Promise.all([
+        api.get("/api/balance-sheet"),
+        api.get("/api/parties"),
+      ]);
       setBs(bsRes.data);
-      setParties(partiesRes.data.slice(0, 8));
+      setParties(partiesRes.data.slice(0, 10));
     } catch (err) {
-      // Non-critical failure — dashboard degrades gracefully with empty state
-      if (err.response?.status !== 401) toast.error("Dashboard load nahi hua");
+      if (process.env.NODE_ENV === "development") { console.error(err); }
     }
     setLoading(false);
-  }, []); // api, toast, state setters are stable module-level refs — intentional empty deps
+  }, []); // api and state setters are stable — intentional empty deps
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, []);
 
   const fmt = (n) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Math.abs(n || 0));
+  const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Subah" : hour < 17 ? "Dopahar" : "Shaam";
 
   return (
-    <div className="p-4 sm:p-8">
-      <div className="flex items-center justify-between mb-5 sm:mb-8">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-stone-900">Namaste, {user?.name?.split(" ")[0]} Ji</h1>
-          <p className="text-xs sm:text-sm text-stone-500 mt-0.5">Aaj ka overview — {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
+    <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-body)" }}>
+
+      {/* ── Header ────────────────────────────────────────────── */}
+      <div style={{ background: "var(--primary-gradient)", padding: "20px 16px 24px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px" }}>
+          <div>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "13px", marginBottom: "4px" }}>{today}</p>
+            <h1 style={{ color: "#fff", fontSize: "22px", fontWeight: 600, fontFamily: "var(--font-heading)" }}>
+              {greeting}, {user?.name?.split(" ")[0]} 👋
+            </h1>
+          </div>
+          <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center" }} data-testid="dashboard-refresh-btn">
+            <RefreshCw size={16} />
+          </button>
         </div>
-        <button onClick={fetchData} className="flex items-center gap-2 text-xs sm:text-sm text-stone-600 hover:text-stone-900 border border-stone-200 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md bg-white transition-colors" data-testid="dashboard-refresh-btn">
-          <RefreshCw size={14} /> <span className="hidden sm:inline">Refresh</span>
-        </button>
+
+        {/* ── Metric cards row ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          {/* You'll Get (Lena) */}
+          <div style={{ background: "rgba(255,255,255,0.10)", borderRadius: "12px", padding: "14px 12px", border: "0.5px solid rgba(255,255,255,0.15)" }}>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Lena Hai</p>
+            <p style={{ color: "#fff", fontSize: "22px", fontWeight: 700, fontFamily: "var(--font-mono)", lineHeight: 1.2 }} data-testid="stat-total-receivable">
+              {loading ? "—" : `₹${fmt(bs?.total_receivable)}`}
+            </p>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px", marginTop: "2px" }}>{bs?.dena_hai?.length || 0} parties</p>
+          </div>
+
+          {/* You'll Give (Dena) */}
+          <div style={{ background: "rgba(255,255,255,0.10)", borderRadius: "12px", padding: "14px 12px", border: "0.5px solid rgba(255,255,255,0.15)" }}>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Dena Hai</p>
+            <p style={{ color: "#fff", fontSize: "22px", fontWeight: 700, fontFamily: "var(--font-mono)", lineHeight: 1.2 }} data-testid="stat-total-payable">
+              {loading ? "—" : `₹${fmt(bs?.total_payable)}`}
+            </p>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px", marginTop: "2px" }}>{bs?.lena_hai?.length || 0} parties</p>
+          </div>
+
+          {/* Net Balance */}
+          <div style={{ background: "rgba(255,255,255,0.10)", borderRadius: "12px", padding: "14px 12px", border: "0.5px solid rgba(255,255,255,0.15)" }}>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Net Balance</p>
+            {loading ? <p style={{ color: "#fff", fontSize: "22px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>—</p> : (
+              <p style={{ fontSize: "22px", fontWeight: 700, fontFamily: "var(--font-mono)", lineHeight: 1.2, color: bs?.net_balance === 0 ? "rgba(255,255,255,0.6)" : "#fff" }} data-testid="stat-net-balance">
+                ₹{fmt(bs?.net_balance)}
+              </p>
+            )}
+          </div>
+
+          {/* Total Parties */}
+          <div style={{ background: "rgba(255,255,255,0.10)", borderRadius: "12px", padding: "14px 12px", border: "0.5px solid rgba(255,255,255,0.15)" }}>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Parties</p>
+            <p style={{ color: "#fff", fontSize: "22px", fontWeight: 700, fontFamily: "var(--font-mono)", lineHeight: 1.2 }} data-testid="stat-total-parties">
+              {loading ? "—" : parties.length}
+            </p>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px", marginTop: "2px" }}>khatadar</p>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-4 gap-4 mb-8">{[1,2,3,4].map((i) => <div key={i} className="bg-white border border-stone-200 rounded-lg p-5 animate-pulse"><div className="h-3 bg-stone-100 rounded w-20 mb-3"/><div className="h-6 bg-stone-100 rounded w-32"/></div>)}</div>
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <StatCard title="Kul Parties" value={parties.length} colorClass="text-stone-800" bgClass="" icon={Users} testId="stat-total-parties" />
-          <StatCard title="Lena Hai (Receivable)" value={`₹${fmt(bs?.total_receivable)}`} colorClass="text-green-700" bgClass="bg-green-50" icon={TrendingDown} testId="stat-total-receivable" />
-          <StatCard title="Dena Hai (Payable)" value={`₹${fmt(bs?.total_payable)}`} colorClass="text-red-700" bgClass="bg-red-50" icon={TrendingUp} testId="stat-total-payable" />
-          <StatCard title="Net Balance" value={`₹${fmt(bs?.net_balance)}`} colorClass={bs?.net_balance < 0 ? "text-green-700" : bs?.net_balance > 0 ? "text-red-700" : "text-stone-600"} bgClass="" icon={Activity} testId="stat-net-balance" />
+      {/* ── Quick Actions ─────────────────────────────────────── */}
+      <div style={{ padding: "16px 16px 0" }}>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <Link to="/parties" style={{ flex: 1, background: "var(--primary)", color: "#fff", border: "none", borderRadius: "10px", padding: "12px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontWeight: 500, fontSize: "14px", textDecoration: "none", justifyContent: "center" }}>
+            <Plus size={16} /> New Party
+          </Link>
+          <Link to="/ledger" style={{ flex: 1, background: "#fff", color: "var(--primary)", border: "0.5px solid var(--border)", borderRadius: "10px", padding: "12px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontWeight: 500, fontSize: "14px", textDecoration: "none", justifyContent: "center" }}>
+            <IndianRupee size={16} /> New Entry
+          </Link>
         </div>
-      )}
+      </div>
 
-      <div className="bg-white border border-stone-200 rounded-lg">
-        <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-stone-900">Parties / Khatadar</h2>
-          <Link to="/parties" className="text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1">Sab dekhein <ArrowRight size={12} /></Link>
+      {/* ── Party list ───────────────────────────────────────── */}
+      <div style={{ padding: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+          <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-heading)" }}>Parties / Khatadar</h2>
+          <Link to="/parties" style={{ fontSize: "13px", color: "var(--info)", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px", fontWeight: 500 }}>
+            Sab dekhein <ArrowRight size={13} />
+          </Link>
         </div>
+
         {loading ? (
-          <div className="p-5 space-y-3">{[1,2,3].map((i) => <div key={i} className="h-8 bg-stone-50 rounded animate-pulse"/>)}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {[1,2,3].map(i => (
+              <div key={i} className="pk-card" style={{ height: "72px", background: "var(--border-light)", animation: "pulse 1.5s infinite" }} />
+            ))}
+          </div>
         ) : parties.length === 0 ? (
-          <div className="p-10 text-center">
-            <Users size={32} className="text-stone-300 mx-auto mb-3" />
-            <p className="text-sm text-stone-500 mb-4">Abhi koi party nahi hai</p>
-            <Link to="/parties" className="inline-flex items-center gap-2 bg-stone-900 text-white text-sm px-4 py-2 rounded-md hover:bg-stone-800">
-              <Users size={14} /> Pehli party add karein
+          <div className="pk-card" style={{ textAlign: "center", padding: "40px 16px" }}>
+            <Users size={40} style={{ color: "var(--border)", margin: "0 auto 12px" }} />
+            <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "16px" }}>Koi party nahi hai abhi</p>
+            <Link to="/parties" className="pk-btn pk-btn--primary" style={{ textDecoration: "none" }}>
+              <Plus size={16} /> Pehli party add karein
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full" data-testid="dashboard-parties-table">
-              <thead>
-                <tr className="bg-stone-50 border-b border-stone-200">
-                  <th className="text-left px-5 py-2.5 text-xs font-semibold text-stone-500 uppercase tracking-wide">Naam</th>
-                  <th className="text-left px-5 py-2.5 text-xs font-semibold text-stone-500 uppercase tracking-wide">Mobile</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-semibold text-stone-500 uppercase tracking-wide">Balance</th>
-                  <th className="px-5 py-2.5" />
-                </tr>
-              </thead>
-              <tbody>
-                {parties.map((p) => {
-                  const bal = formatBalance(p.current_balance);
-                  return (
-                    <tr key={p.id} className="border-b border-stone-100 hover:bg-stone-50" data-testid={`party-row-${p.id}`}>
-                      <td className="px-5 py-3 text-sm font-medium text-stone-900">{toTitleCase(p.name)}</td>
-                      <td className="px-5 py-3 text-sm text-stone-500 font-mono">{p.mobile || "—"}</td>
-                      <td className="px-5 py-3 text-right"><span className={`text-sm font-mono font-semibold ${bal.colorClass}`}>{bal.text}</span></td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => navigate(`/ledger/${p.id}`)} className="text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1 ml-auto" data-testid={`view-ledger-${p.id}`}>
-                          <BookOpen size={12} /> Ledger
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {parties.map((p) => {
+              const bal = formatBalance(p.current_balance);
+              return (
+                <div
+                  key={p.id}
+                  className="pk-card animate-in"
+                  onClick={() => navigate(`/ledger/${p.id}`)}
+                  style={{ cursor: "pointer" }}
+                  data-testid={`party-row-${p.id}`}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "10px" }}>
+                    <div>
+                      <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "2px" }}>{toTitleCase(p.name)}</p>
+                      {p.mobile && <p style={{ fontSize: "12px", color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>{p.mobile}</p>}
+                    </div>
+                    {/* Entry count badge */}
+                    <span className="pk-badge pk-badge--blue" style={{ fontSize: "11px" }}>
+                      {p.has_unlocked_entries ? "Active" : "Settled"}
+                    </span>
+                  </div>
+                  <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>Balance</span>
+                    <span style={{
+                      fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)",
+                      color: p.current_balance === 0 ? "var(--text-tertiary)" : p.current_balance > 0 ? "var(--dena)" : "var(--lena)"
+                    }} data-testid={`party-balance-${p.id}`}>
+                      {bal.text}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

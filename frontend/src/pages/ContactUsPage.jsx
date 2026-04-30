@@ -16,7 +16,7 @@ const ContactUsPage = () => {
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: "'Work Sans', sans-serif" }}>
       {/* Nav */}
-      <nav className="bg-red-700 text-white sticky top-0 z-50 shadow-md">
+      <nav style={{ background: "var(--primary-gradient)" }} className="text-white sticky top-0 z-50 shadow-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-7 h-7 bg-white/20 rounded flex items-center justify-center">
@@ -32,13 +32,13 @@ const ContactUsPage = () => {
       </nav>
 
       {/* Header */}
-      <section className="bg-gradient-to-br from-red-700 to-red-900 text-white py-14 px-4 text-center">
+      <section className="text-white py-14 px-4 text-center" style={{ background: "var(--primary-gradient)" }}>
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-center gap-2 mb-4">
             <MessageCircle size={28} className="text-amber-400" />
             <h1 className="text-4xl font-black" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>Contact Us</h1>
           </div>
-          <p className="text-red-200 text-lg">Koi bhi sawaal ho, hum yahan hain. Seedha contact karein!</p>
+          <p className="text-lg" style="color: rgba(255,255,255,0.8)">Koi bhi sawaal ho, hum yahan hain. Seedha contact karein!</p>
         </div>
       </section>
 

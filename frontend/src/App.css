@@ -1,10 +1,213 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-body { font-family: 'Work Sans', sans-serif; background-color: #FDFBF7; }
-h1,h2,h3,h4,h5,h6 { font-family: 'IBM Plex Sans', sans-serif; }
-.font-mono, code { font-family: 'IBM Plex Mono', monospace; }
-.ledger-table tbody tr:hover { background-color: #f5f5f4; }
-.fast-entry-row input { font-family: 'IBM Plex Mono', monospace; outline: none; }
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f5f5f4; }
-::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* Brand / Primary */
+  --primary:          #1a2b4a;
+  --primary-dark:     #0f1f35;
+  --primary-gradient: linear-gradient(135deg, #1a2b4a 0%, #0f1f35 100%);
+
+  /* Semantic — keep same as web app (user requirement) */
+  --dena:             #1D4ED8;   /* Dena Hai = Blue (payable) */
+  --dena-bg:          #EFF6FF;
+  --lena:             #B91C1C;   /* Lena Hai = Red (receivable) */
+  --lena-bg:          #FEF2F2;
+
+  /* Success / Green */
+  --success:          #0C7D3B;
+  --success-light:    #1a9e75;
+  --success-bg:       #EAF3DE;
+
+  /* Danger / Red */
+  --danger:           #A32D2D;
+  --danger-bg:        #FCEBEB;
+
+  /* Info / Blue */
+  --info:             #378ADD;
+  --info-bg:          #E6F1FB;
+
+  /* Warning / Amber */
+  --warning:          #BA7517;
+  --warning-bg:       #FAEEDA;
+
+  /* Neutrals */
+  --white:            #ffffff;
+  --bg-page:          #F4F6F9;
+  --bg-card:          #ffffff;
+  --text-primary:     #111827;   /* Black on white — user requirement */
+  --text-secondary:   #4B5563;
+  --text-tertiary:    #9CA3AF;
+  --border:           #E5E7EB;
+  --border-light:     #F3F4F6;
+  --shadow-card:      0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.04);
+  --shadow-card-hover:0 4px 12px rgba(0,0,0,0.10);
+
+  /* Spacing */
+  --space-xs:  8px;
+  --space-sm:  12px;
+  --space-md:  16px;
+  --space-lg:  20px;
+  --space-xl:  24px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 20px;
+
+  /* Typography */
+  --font-body:    'Work Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+}
+
+/* ── Base Reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); color: var(--text-primary); }
+code, pre, .font-mono { font-family: var(--font-mono); }
+
+/* ── Card ────────────────────────────────────────────────────── */
+.pk-card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease;
+}
+.pk-card:hover { box-shadow: var(--shadow-card-hover); }
+
+/* ── Badge ───────────────────────────────────────────────────── */
+.pk-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pk-badge--green  { background: var(--success-bg);  color: #3B6D11; }
+.pk-badge--red    { background: var(--danger-bg);    color: var(--danger); }
+.pk-badge--blue   { background: var(--info-bg);      color: var(--info); }
+.pk-badge--amber  { background: var(--warning-bg);   color: var(--warning); }
+.pk-badge--gray   { background: var(--bg-page);      color: var(--text-secondary); }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.pk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pk-btn--primary {
+  background: var(--primary-gradient);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(26,43,74,0.25);
+}
+.pk-btn--primary:hover { opacity: 0.92; box-shadow: 0 4px 12px rgba(26,43,74,0.30); }
+
+.pk-btn--success {
+  background: linear-gradient(135deg, #0C7D3B, #1a9e75);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(26,158,117,0.25);
+}
+.pk-btn--success:hover { opacity: 0.92; }
+
+.pk-btn--outline {
+  background: var(--white);
+  color: var(--text-primary);
+  border: 0.5px solid var(--border);
+}
+.pk-btn--outline:hover { background: var(--bg-page); }
+
+.pk-btn--danger {
+  background: var(--danger);
+  color: var(--white);
+}
+.pk-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Form Inputs ─────────────────────────────────────────────── */
+.pk-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background: var(--white);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+.pk-input:focus {
+  border-color: var(--info);
+  box-shadow: 0 0 0 3px rgba(55,138,221,0.12);
+}
+.pk-input::placeholder { color: var(--text-tertiary); }
+.pk-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+/* ── Divider ─────────────────────────────────────────────────── */
+.pk-divider { border: none; border-top: 0.5px solid var(--border); margin: 12px 0; }
+
+/* ── Metric card ─────────────────────────────────────────────── */
+.pk-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pk-metric__label { font-size: 12px; color: var(--text-tertiary); font-weight: 500; }
+.pk-metric__value { font-size: 22px; font-weight: 700; font-family: var(--font-mono); line-height: 1.2; }
+.pk-metric__sub   { font-size: 11px; color: var(--text-tertiary); }
+
+/* ── Scrollbars ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-page); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+/* ── Ledger table ────────────────────────────────────────────── */
+.ledger-table { width: 100%; border-collapse: collapse; }
+.ledger-table tbody tr:hover { background: var(--bg-page); }
+
+/* ── Fast entry row ──────────────────────────────────────────── */
+.fast-entry-row input { font-family: var(--font-mono); outline: none; }
+
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.2s ease-out; }
