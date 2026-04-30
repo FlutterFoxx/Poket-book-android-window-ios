@@ -15,13 +15,8 @@ android {
         }
     }
     signingConfigs {
-        release {
-            def ksPath = System.getenv("KEYSTORE_PATH")
-            if (ksPath && new File(ksPath).exists()) {
-                storeFile new File(ksPath)
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
-                keyPassword System.getenv("KEY_PASSWORD")
+    release {
+        storeFile file("poketbook-release.keystore")
             }
         }
     }
