@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
 import { toast } from "sonner";
-import { Lock, Printer, Pencil, Trash2, X, ChevronDown, BookOpen } from "lucide-react";
+import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 
 const EMPTY_FAST = { date: today(), partyId: "", naam: "", jama: "", narration: "" };
 
@@ -42,6 +42,7 @@ const LedgerPage = () => {
   const [tallyConfirm, setTallyConfirm] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState(new Set());
   const [liveTime, setLiveTime] = useState(new Date()); // live clock
+  const [isEntryOpen, setIsEntryOpen] = useState(true); // mobile curtain panel toggle
 
   const naamRef = useRef(null);
   const jamaRef = useRef(null);
@@ -584,19 +585,42 @@ const LedgerPage = () => {
       {selectedId && (
         <div className="flex-shrink-0" style={{ background: "var(--primary)" }} data-testid="fast-entry-row">
 
-          {/* ── MOBILE: Clean card form < md ──────────────────────────── */}
-          <div className="block md:hidden p-3">
-            <div className="pk-card" style={{ padding: "0", overflow: "hidden" }}>
-              {/* Header */}
-              <div style={{ background: "var(--primary)", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ color: "#fff", fontWeight: 600, fontSize: "14px" }}>New Entry</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.15)", borderRadius: "8px", padding: "4px 10px" }}>
-                  <div style={{ width: "6px", height: "6px", background: "#22C55E", borderRadius: "50%" }} className="animate-pulse" />
-                  <span style={{ color: "#fff", fontSize: "12px", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
-                    {liveTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
+          {/* ── MOBILE: Curtain entry panel < md ──────────────────────────── */}
+          <div className="block md:hidden">
+            {/* Curtain Handle — always visible, toggles the form */}
+            <button
+              onClick={() => setIsEntryOpen(o => !o)}
+              data-testid="entry-panel-toggle"
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 16px", background: "var(--primary)", border: "none", cursor: "pointer",
+                borderTop: isEntryOpen ? "none" : "2px solid rgba(255,255,255,0.2)"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ width: "6px", height: "6px", background: "#22C55E", borderRadius: "50%" }} className="animate-pulse" />
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: "14px" }}>New Entry</span>
+                {!isEntryOpen && (
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "11px" }}>
+                    {liveTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                   </span>
-                </div>
+                )}
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff" }}>
+                {isEntryOpen
+                  ? <><span style={{ fontSize: "12px", opacity: 0.7 }}>Hide</span><ChevronDown size={18} /></>
+                  : <><span style={{ fontSize: "12px", opacity: 0.7 }}>Open</span><ChevronUp size={18} /></>
+                }
+              </div>
+            </button>
+
+            {/* Curtain body — slides open/closed */}
+            <div style={{
+              maxHeight: isEntryOpen ? "600px" : "0px",
+              overflow: "hidden",
+              transition: "max-height 0.3s ease",
+            }}>
+              <div className="pk-card" style={{ margin: "0 12px 12px", padding: "0", overflow: "hidden" }}>
               {/* Form body */}
               <div style={{ padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
                 {/* Row 1: Date + Party */}
@@ -661,6 +685,7 @@ const LedgerPage = () => {
                   data-testid="fast-entry-save-btn">
                   {saving ? "Saving..." : "Save Entry (OK)"}
                 </button>
+              </div>
               </div>
             </div>
           </div>

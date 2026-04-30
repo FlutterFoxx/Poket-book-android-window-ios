@@ -92,25 +92,26 @@ const BalanceSheet = () => {
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div style={{ background: "var(--primary-gradient)", color: "#fff", padding: "12px 16px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
             <h1 style={{ fontSize: "18px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
               {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex" }} data-testid="bs-refresh-btn">
-              <RefreshCw size={15} />
-            </button>
-            <button onClick={handlePrint} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }} data-testid="bs-export-pdf-btn">
-              <Printer size={14} /> Print / PDF
-            </button>
-            <a href={`${process.env.REACT_APP_BACKEND_URL}/api/export/balance-sheet/excel`} target="_blank" rel="noopener noreferrer"
-              style={{ background: "#16A34A", border: "none", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px", textDecoration: "none" }} data-testid="bs-export-excel-btn">
-              <FileSpreadsheet size={14} /> Excel
-            </a>
-          </div>
+          <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex", flexShrink: 0 }} data-testid="bs-refresh-btn">
+            <RefreshCw size={15} />
+          </button>
+        </div>
+        {/* Print + Excel — full width row on mobile */}
+        <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+          <button onClick={handlePrint} style={{ flex: 1, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }} data-testid="bs-export-pdf-btn">
+            <Printer size={16} /> Print / PDF
+          </button>
+          <a href={`${process.env.REACT_APP_BACKEND_URL}/api/export/balance-sheet/excel`} target="_blank" rel="noopener noreferrer"
+            style={{ flex: 1, background: "#16A34A", border: "none", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", textDecoration: "none" }} data-testid="bs-export-excel-btn">
+            <FileSpreadsheet size={16} /> Excel
+          </a>
         </div>
 
         {/* Net balance summary */}

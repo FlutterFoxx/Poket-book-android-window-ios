@@ -454,9 +454,9 @@ const StatementPage = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* ── Left Panel: Controls ─────────────────────────────────── */}
-        <div className="w-80 flex-shrink-0 bg-white border-r border-stone-200 overflow-y-auto p-5 space-y-5">
+        <div className="w-full md:w-80 flex-shrink-0 bg-white border-b md:border-b-0 md:border-r border-stone-200 overflow-y-auto p-5 space-y-5" style={{ maxHeight: "100%" }}>
 
           {/* Report Type */}
           <div>
@@ -593,8 +593,8 @@ const StatementPage = () => {
           </div>
         </div>
 
-        {/* ── Right Panel: Live Preview ────────────────────────────── */}
-        <div className="flex-1 overflow-auto" style={{ background: "#FFF5E6" }}>
+        {/* ── Right Panel: Live Preview (desktop only) ────────────────── */}
+        <div className="hidden md:flex flex-1 overflow-auto flex-col" style={{ background: "#FFF5E6" }}>
           {exportType === "balance-sheet" ? (
             <div className="p-8 text-center text-stone-500">
               <FileSpreadsheet size={48} className="mx-auto mb-4 text-stone-300" />

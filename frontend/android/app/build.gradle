@@ -18,7 +18,7 @@ android {
 
     signingConfigs {
         release {
-            // Use absolute path from KEYSTORE_PATH env var to avoid relative-path double-app/ bug
+            // KEYSTORE_PATH must be an absolute path (set by CI workflow)
             def ksPath = System.getenv("KEYSTORE_PATH")
             def ksPass = System.getenv("KEYSTORE_PASSWORD")
             def kAlias = System.getenv("KEY_ALIAS")
@@ -28,6 +28,8 @@ android {
                 storePassword ksPass
                 keyAlias      kAlias
                 keyPassword   kPass
+                v1SigningEnabled true
+                v2SigningEnabled true
             }
         }
     }
@@ -36,11 +38,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            def ksPath = System.getenv("KEYSTORE_PATH")
-            def ksPass = System.getenv("KEYSTORE_PASSWORD")
-            if (ksPath && ksPass && new java.io.File(ksPath).exists()) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
         }
     }
 }
