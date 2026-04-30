@@ -934,47 +934,126 @@ async def export_ledger_excel(
 
 @api_router.get("/export/balance-sheet/pdf")
 async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+
     data = await get_balance_sheet(current_user)
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm, topMargin=15*mm, bottomMargin=15*mm)
+
     styles = getSampleStyleSheet()
-    elements = [
-        Paragraph("Balance Sheet", styles["Title"]),
-        Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y')}", styles["Normal"]),
-        Spacer(1, 12),
-    ]
-    lena, dena = data["lena_hai"], data["dena_hai"]
-    max_rows = max(len(lena), len(dena), 1)
-    table_data = [["Lena Hai (Receivable)", "Amount", "Dena Hai (Payable)", "Amount"]]
+    title_style = ParagraphStyle("title", fontSize=16, fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=4)
+    sub_style   = ParagraphStyle("sub",   fontSize=9,  fontName="Helvetica",      alignment=TA_CENTER, textColor=colors.HexColor("#6B7280"), spaceAfter=12)
+
+    BLUE   = colors.HexColor("#1E40AF")
+    BLUE_L = colors.HexColor("#DBEAFE")
+    BLUE_T = colors.HexColor("#1D4ED8")
+    RED    = colors.HexColor("#991B1B")
+    RED_L  = colors.HexColor("#FEE2E2")
+    RED_T  = colors.HexColor("#B91C1C")
+    GREY   = colors.HexColor("#F9FAFB")
+    BORDER = colors.HexColor("#E5E7EB")
+
+    dena = data["dena_hai"]   # Blue column — Left
+    lena = data["lena_hai"]   # Red column  — Right
+    max_rows = max(len(dena), len(lena), 1)
+
+    # Column widths: [name, amount,  gap, name, amount]
+    COL = [90*mm, 35*mm, 4*mm, 90*mm, 35*mm]
+
+    # Header row
+    hdr_name_style = ParagraphStyle("hdr", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_LEFT)
+    hdr_amt_style  = ParagraphStyle("hdr_r", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_RIGHT)
+
+    def _row(dena_p, dena_a, lena_p, lena_a, is_total=False):
+        fn = "Helvetica-Bold" if is_total else "Helvetica"
+        dc = BLUE_T if not is_total else BLUE
+        rc = RED_T  if not is_total else RED
+        return [
+            Paragraph(f'<font name="{fn}" color="{dc.hexval()}">{dena_p}</font>', ParagraphStyle("c", fontSize=8, fontName=fn)),
+            Paragraph(f'<font name="{fn}" color="{dc.hexval()}">{dena_a}</font>', ParagraphStyle("r", fontSize=8, fontName=fn, alignment=TA_RIGHT)),
+            "",
+            Paragraph(f'<font name="{fn}" color="{rc.hexval()}">{lena_p}</font>', ParagraphStyle("c2", fontSize=8, fontName=fn)),
+            Paragraph(f'<font name="{fn}" color="{rc.hexval()}">{lena_a}</font>', ParagraphStyle("r2", fontSize=8, fontName=fn, alignment=TA_RIGHT)),
+        ]
+
+    table_data = [[
+        Paragraph(f"DENA HAI / देना है  [{len(dena)} parties]", hdr_name_style),
+        Paragraph("Amount (₹)", hdr_amt_style),
+        "",
+        Paragraph(f"LENA HAI / लेना है  [{len(lena)} parties]", hdr_name_style),
+        Paragraph("Amount (₹)", hdr_amt_style),
+    ]]
+
     for i in range(max_rows):
-        lena_row = lena[i] if i < len(lena) else {"name": "", "amount": ""}
-        dena_row = dena[i] if i < len(dena) else {"name": "", "amount": ""}
-        table_data.append([
-            lena_row.get("name", ""), fmt_inr(lena_row["amount"]) if lena_row.get("name") else "",
-            dena_row.get("name", ""), fmt_inr(dena_row["amount"]) if dena_row.get("name") else "",
-        ])
-    table_data.append(["TOTAL RECEIVABLE", fmt_inr(data["total_receivable"]), "TOTAL PAYABLE", fmt_inr(data["total_payable"])])
-    t = Table(table_data, colWidths=[150, 90, 150, 90])
+        dp = dena[i] if i < len(dena) else {}
+        lp = lena[i] if i < len(lena) else {}
+        table_data.append(_row(
+            dp.get("name", ""), fmt_inr(dp["amount"]) if dp.get("name") else "",
+            lp.get("name", ""), fmt_inr(lp["amount"]) if lp.get("name") else "",
+        ))
+
+    # Totals row
+    table_data.append(_row(
+        "TOTAL PAYABLE", fmt_inr(data["total_payable"]),
+        "TOTAL RECEIVABLE", fmt_inr(data["total_receivable"]),
+        is_total=True,
+    ))
+
+    t = Table(table_data, colWidths=COL, repeatRows=1)
+    row_styles = []
+    for i in range(1, max_rows + 1):
+        bg = colors.white if i % 2 == 1 else GREY
+        row_styles.append(("BACKGROUND", (0, i), (1, i), bg))
+        row_styles.append(("BACKGROUND", (3, i), (4, i), bg))
+
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (1, 0), colors.HexColor("#15803D")),
-        ("BACKGROUND", (2, 0), (3, 0), colors.HexColor("#B91C1C")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F5F5F4")]),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"), ("ALIGN", (3, 0), (3, -1), "RIGHT"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        # Header
+        ("BACKGROUND",   (0, 0), (1, 0), BLUE),
+        ("BACKGROUND",   (3, 0), (4, 0), RED),
+        ("BACKGROUND",   (2, 0), (2, -1), colors.white),   # gap col
+        ("ROWBACKGROUNDS", (2, 0), (2, -1), [colors.white]),
+        # Borders
+        ("BOX",          (0, 0), (1, -1), 0.5, BORDER),
+        ("BOX",          (3, 0), (4, -1), 0.5, BORDER),
+        ("INNERGRID",    (0, 0), (1, -1), 0.3, BORDER),
+        ("INNERGRID",    (3, 0), (4, -1), 0.3, BORDER),
+        ("LINEABOVE",    (0, -1), (1, -1), 1.5, BLUE),
+        ("LINEABOVE",    (3, -1), (4, -1), 1.5, RED),
+        # Total row backgrounds
+        ("BACKGROUND",   (0, -1), (1, -1), BLUE_L),
+        ("BACKGROUND",   (3, -1), (4, -1), RED_L),
+        # Padding
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        *row_styles,
     ]))
-    elements.append(t)
+
+    # Net balance row
+    net = data.get("net_balance", 0)
+    net_label = "Net Payable (Dena > Lena)" if net > 0 else ("Net Receivable (Lena > Dena)" if net < 0 else "Balanced")
+    net_color  = "#1E40AF" if net > 0 else ("#991B1B" if net < 0 else "#374151")
+    net_style  = ParagraphStyle("net", fontSize=9, fontName="Helvetica-Bold",
+                                textColor=colors.HexColor(net_color), alignment=TA_RIGHT)
+
+    elements = [
+        Paragraph("Balance Sheet", title_style),
+        Paragraph(f"Generated: {datetime.now(timezone.utc).strftime('%d %B %Y')}", sub_style),
+        t,
+        Spacer(1, 6),
+        Paragraph(f"Net Balance: ₹{fmt_inr(abs(net))} — {net_label}", net_style),
+    ]
     doc.build(elements)
     buf.seek(0)
     return Response(content=buf.read(), media_type="application/pdf",
-                    headers={"Content-Disposition": "attachment; filename=balance_sheet.pdf"})
+                    headers={"Content-Disposition": "attachment; filename=PoketBook_BalanceSheet.pdf"})
 
 @api_router.get("/export/balance-sheet/excel")
 async def export_bs_excel(current_user: dict = Depends(get_current_user)):
