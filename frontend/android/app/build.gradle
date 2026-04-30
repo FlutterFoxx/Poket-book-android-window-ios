@@ -18,8 +18,8 @@ android {
 
     signingConfigs {
         release {
-            // Keystore file is in the same directory as this build.gradle file
-            storeFile file('poketbook-release.keystore')
+            // Keystore file path relative to the working directory (frontend/android)
+            storeFile file('app/poketbook-release.keystore')
             storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
             keyAlias System.getenv("KEY_ALIAS") ?: ""
             keyPassword System.getenv("KEY_PASSWORD") ?: ""
