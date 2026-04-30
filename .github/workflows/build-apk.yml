@@ -1,8 +1,9 @@
-name: Build & Release poketbook Apps
+name: Build and Release PoketBook Apps
 
 on:
   push:
-    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       platform:
@@ -10,7 +11,10 @@ on:
         required: true
         default: 'android'
         type: choice
-        options: ['android', 'ios', 'both']
+        options:
+          - android
+          - ios
+          - both
       version_override:
         description: 'Version name (e.g. 1.2.0) — blank = auto'
         required: false
@@ -20,27 +24,27 @@ env:
   REACT_APP_BACKEND_URL: https://party-tally-1.preview.emergentagent.com
   NODE_VERSION: '22'
   JAVA_VERSION: '17'
-  BUNDLE_ID: 'in.poketbook.app'
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  BUNDLE_ID: in.poketbook.app
 
 jobs:
-  # ── JOB 1: Compute version numbers ──────────────────────────────────────────
   version:
     name: Compute Version
     runs-on: ubuntu-latest
     outputs:
       version_code: ${{ steps.v.outputs.version_code }}
       version_name: ${{ steps.v.outputs.version_name }}
-      release_tag:  ${{ steps.v.outputs.release_tag }}
+      release_tag: ${{ steps.v.outputs.release_tag }}
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
       - name: Compute version
         id: v
         run: |
           CODE="${{ github.run_number }}"
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            NAME="${{ github.ref_name }}"; NAME="${NAME#v}"
+            NAME="${{ github.ref_name }}"
+            NAME="${NAME#v}"
           elif [[ -n "${{ github.event.inputs.version_override }}" ]]; then
             NAME="${{ github.event.inputs.version_override }}"
           else
@@ -51,7 +55,6 @@ jobs:
           echo "release_tag=v${NAME}" >> "$GITHUB_OUTPUT"
           echo "### Version: ${NAME} (code ${CODE})" >> "$GITHUB_STEP_SUMMARY"
 
-  # ── JOB 2: Build React web app ───────────────────────────────────────────────
   build-web:
     name: Build React App
     runs-on: ubuntu-latest
@@ -64,7 +67,7 @@ jobs:
       - name: Install dependencies
         working-directory: ./frontend
         run: npm install --legacy-peer-deps
-      - name: Build
+      - name: Build React app
         working-directory: ./frontend
         env:
           CI: false
@@ -78,13 +81,13 @@ jobs:
         with:
           name: web-build-${{ needs.version.outputs.version_code }}
           path: frontend/build/
-          retention-days: 1
 
-  # ── JOB 3: Build Android AAB + APK ──────────────────────────────────────────
   build-android:
     name: Build Android
     runs-on: ubuntu-latest
-    needs: [version, build-web]
+    needs:
+      - version
+      - build-web
     if: ${{ github.event.inputs.platform != 'ios' }}
     steps:
       - uses: actions/checkout@v4
@@ -96,63 +99,50 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
       - uses: android-actions/setup-android@v3
-
       - name: Download web build
         uses: actions/download-artifact@v4
         with:
           name: web-build-${{ needs.version.outputs.version_code }}
           path: frontend/build/
-
       - name: Install dependencies
         working-directory: ./frontend
         run: npm install --legacy-peer-deps
-
       - name: Install Capacitor CLI
         run: npm install -g @capacitor/cli@6.2.0
-
-      - name: Sync Capacitor → Android
+      - name: Sync Capacitor to Android
         working-directory: ./frontend
         run: npx cap sync android
-
       - name: Make Gradle executable
         working-directory: ./frontend/android
         run: chmod +x gradlew
-
-      # SECURITY: Decode keystore from GitHub Secrets vault — never hardcoded
-      - name: Decode keystore from Secrets
+      - name: Decode keystore
         if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
         run: |
-          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > \
-            ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
-          echo "Keystore decoded: $(stat -c%s frontend/android/app/poketbook-release.keystore) bytes"
-
-      # Smart build: signed release if secrets available, debug APK as fallback
-      - name: "Build Android (signed release if secrets, debug fallback)"
+          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
+          echo "Keystore size: $(stat -c%s ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore) bytes"
+      - name: Build Android artifacts
         working-directory: ./frontend/android
         env:
-          VERSION_CODE:      ${{ needs.version.outputs.version_code }}
-          VERSION_NAME:      ${{ needs.version.outputs.version_name }}
-          KEYSTORE_PATH:     ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
+          VERSION_CODE: ${{ needs.version.outputs.version_code }}
+          VERSION_NAME: ${{ needs.version.outputs.version_name }}
+          KEYSTORE_PATH: ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "$KEYSTORE_PATH" ]; then
-            echo "✅ Secrets present — building SIGNED Release AAB + APK"
+            echo "Signing secrets present — building signed Release AAB and APK"
             ./gradlew bundleRelease --no-daemon
             ./gradlew assembleRelease --no-daemon
             echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
           else
-            echo "⚠️  No signing secrets — building unsigned Debug APK"
+            echo "No signing secrets — building unsigned Debug APK"
             ./gradlew assembleDebug --no-daemon
             echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
           fi
-
-      # SECURITY: Wipe keystore immediately after build
       - name: Wipe keystore
         if: always()
         run: rm -f ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
-
       - name: Rename artifacts
         run: |
           V="${{ needs.version.outputs.version_name }}"
@@ -166,90 +156,78 @@ jobs:
             APK=$(find frontend/android/app/build/outputs/apk/debug/ -name "*.apk" | head -1)
             [ -n "$APK" ] && cp "$APK" "poketbook-v${V}-${C}-debug.apk" || true
           fi
-
-      - name: Upload AAB (Play Store)
-        if: env.BUILD_TYPE == 'release'
+      - name: Upload AAB for Play Store
+        if: ${{ env.BUILD_TYPE == 'release' }}
         uses: actions/upload-artifact@v4
         with:
           name: poketbook-android-aab-v${{ needs.version.outputs.version_name }}
           path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.aab
           retention-days: 90
-
       - name: Upload Release APK
-        if: env.BUILD_TYPE == 'release'
+        if: ${{ env.BUILD_TYPE == 'release' }}
         uses: actions/upload-artifact@v4
         with:
           name: poketbook-android-apk-release-v${{ needs.version.outputs.version_name }}
           path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-release.apk
           retention-days: 90
-
-      - name: Upload Debug APK (fallback)
-        if: env.BUILD_TYPE == 'debug'
+      - name: Upload Debug APK
+        if: ${{ env.BUILD_TYPE == 'debug' }}
         uses: actions/upload-artifact@v4
         with:
           name: poketbook-android-apk-debug-v${{ needs.version.outputs.version_name }}
           path: poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-debug.apk
           retention-days: 30
-
       - name: Build summary
         run: |
-          echo "### ✅ Android Build ($BUILD_TYPE)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Android Build ($BUILD_TYPE)" >> "$GITHUB_STEP_SUMMARY"
           if [ "$BUILD_TYPE" = "release" ]; then
-            echo "- **AAB** (Play Store): \`poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.aab\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- **APK** (sideload): \`poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-release.apk\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- AAB (Play Store): poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.aab" >> "$GITHUB_STEP_SUMMARY"
+            echo "- APK (sideload): poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-release.apk" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- **Debug APK** (no signing secrets): \`poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-debug.apk\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- ℹ️ Add secrets to build signed release: \`ANDROID_SIGNING_KEY\`, \`ANDROID_KEYSTORE_PASSWORD\`, \`ANDROID_KEY_ALIAS\`, \`ANDROID_KEY_PASSWORD\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Debug APK (no signing secrets): poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}-debug.apk" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Add ANDROID_SIGNING_KEY, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD secrets for signed release builds" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-  # ── JOB 4: Build iOS IPA (macOS required) ───────────────────────────────────
   build-ios:
     name: Build iOS IPA
     runs-on: macos-latest
-    needs: [version, build-web]
+    needs:
+      - version
+      - build-web
     if: ${{ github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both' || startsWith(github.ref, 'refs/tags/') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-
       - name: Download web build
         uses: actions/download-artifact@v4
         with:
           name: web-build-${{ needs.version.outputs.version_code }}
           path: frontend/build/
-
       - name: Install dependencies
         working-directory: ./frontend
         run: npm install --legacy-peer-deps
-
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document
-
-      - name: Sync Capacitor → iOS
+      - name: Sync Capacitor to iOS
         working-directory: ./frontend
         run: npx cap sync ios
-
       - name: Install iOS Pods
         working-directory: ./frontend/ios/App
         run: pod install
-
-      # SECURITY: All Apple certs from Secrets vault
       - name: Import Apple certificate
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
-          p12-password:    ${{ secrets.IOS_P12_PASSWORD }}
-
+          p12-password: ${{ secrets.IOS_P12_PASSWORD }}
       - name: Download provisioning profile
         uses: apple-actions/download-provisioning-profiles@v1
         with:
-          bundle-id:       ${{ env.BUNDLE_ID }}
-          issuer-id:       ${{ secrets.APPLE_ISSUER_ID }}
-          api-key-id:      ${{ secrets.APPLE_KEY_ID }}
+          bundle-id: ${{ env.BUNDLE_ID }}
+          issuer-id: ${{ secrets.APPLE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPLE_KEY_ID }}
           api-private-key: ${{ secrets.APPLE_PRIVATE_KEY }}
-
       - name: Build iOS archive
         working-directory: ./frontend/ios
         run: |
@@ -262,7 +240,6 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=${{ env.BUNDLE_ID }} \
             MARKETING_VERSION=${{ needs.version.outputs.version_name }} \
             CURRENT_PROJECT_VERSION=${{ needs.version.outputs.version_code }}
-
       - name: Export IPA
         working-directory: ./frontend
         run: |
@@ -272,9 +249,7 @@ jobs:
             -exportOptionsPlist "ios/App/ExportOptions.plist"
           IPA=$(find poketbook-ipa/ -name "*.ipa" | head -1)
           [ -n "$IPA" ] && mv "$IPA" "poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.ipa"
-
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: poketbook-ios-ipa-v${{ needs.version.outputs.version_name }}
           path: frontend/poketbook-v${{ needs.version.outputs.version_name }}-${{ needs.version.outputs.version_code }}.ipa
