@@ -149,11 +149,6 @@ jobs:
       - name: Sync Capacitor to Android
         working-directory: ./frontend
         run: npx cap sync android
- 
-      - name: Decode Android keystore to tmp
-        run: |
-          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > /tmp/poketbook-release.keystore
-          echo "Keystore size: $(stat -c%s /tmp/poketbook-release.keystore) bytes"
 
       - name: Restore build.gradle after cap sync
         run:  git checkout frontend/android/app/build.gradle
