@@ -112,6 +112,8 @@ jobs:
       - name: Sync Capacitor to Android
         working-directory: ./frontend
         run: npx cap sync android
+      - name: Restore build.gradle after cap sync
+        run: git checkout frontend/android/app/build.gradle && echo "build.gradle restored from git"
       - name: Make Gradle executable
         working-directory: ./frontend/android
         run: chmod +x gradlew

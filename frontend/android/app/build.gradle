@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
     namespace "in.poketbook.app"
     compileSdk rootProject.ext.compileSdkVersion
-    
+
     defaultConfig {
         applicationId "in.poketbook.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -18,23 +18,29 @@ android {
 
     signingConfigs {
         release {
-            // Keystore file path relative to the working directory (frontend/android)
-            storeFile file('app/poketbook-release.keystore')
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias System.getenv("KEY_ALIAS") ?: ""
-            keyPassword System.getenv("KEY_PASSWORD") ?: ""
+            // Use absolute path from KEYSTORE_PATH env var to avoid relative-path double-app/ bug
+            def ksPath = System.getenv("KEYSTORE_PATH")
+            def ksPass = System.getenv("KEYSTORE_PASSWORD")
+            def kAlias = System.getenv("KEY_ALIAS")
+            def kPass  = System.getenv("KEY_PASSWORD")
+            if (ksPath && ksPass && kAlias && new java.io.File(ksPath).exists()) {
+                storeFile     new java.io.File(ksPath)
+                storePassword ksPass
+                keyAlias      kAlias
+                keyPassword   kPass
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-        debug {
-            applicationIdSuffix ".debug"
-            versionNameSuffix "-debug"
+            def ksPath = System.getenv("KEYSTORE_PATH")
+            def ksPass = System.getenv("KEYSTORE_PASSWORD")
+            if (ksPath && ksPass && new java.io.File(ksPath).exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
