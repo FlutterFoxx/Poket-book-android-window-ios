@@ -1235,17 +1235,7 @@ async def export_csv_backup(current_user: dict = Depends(get_current_user)):
 # ─── Google Sheets OAuth ───────────────────────────────────────────────────────
 
 def _build_redirect_uri(request: Request) -> str:
-    """Dynamically construct redirect URI from incoming request host.
-    Works on preview URL, poketbook.in, and any future domain automatically.
-    Requires that URL is registered in Google Cloud Console."""
-    forwarded_host = request.headers.get("x-forwarded-host", "")
-    forwarded_proto = request.headers.get("x-forwarded-proto", "https")
-    host = request.headers.get("host", "")
-    # Prefer x-forwarded-host (set by Kubernetes ingress with the real external domain)
-    real_host = forwarded_host.split(",")[0].strip() if forwarded_host else host.split(":")[0]
-    if real_host and "." in real_host and real_host != "localhost":
-        return f"{forwarded_proto}://{real_host}/api/oauth/sheets/callback"
-    # Fallback to env var
+    """Always use the configured GOOGLE_REDIRECT_URI env var — exact match required by Google."""
     return os.environ.get("GOOGLE_REDIRECT_URI", "")
 
 @api_router.get("/oauth/sheets/connect")
