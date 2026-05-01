@@ -79,7 +79,7 @@ const Dashboard = () => {
 
   const sub = user?.subscription;
   const subDays = sub?.days_remaining ?? null;
-  const subType = sub?.subscription_type || "trial";
+  const subType = sub?.type || "trial";
   const subActive = sub?.is_active;
   const subColor = subDays !== null && subDays <= 3 ? "#EF4444" : subDays !== null && subDays <= 7 ? "#F59E0B" : "#22C55E";
 
