@@ -497,6 +497,8 @@ const LandingPage = () => {
                 <a href="https://flutterfox.in" rel="dofollow" target="_blank" className="block text-sm text-gray-400 hover:text-white transition-colors">Flutter Fox</a>
                 <Link to="/how-to-use" className="block text-sm text-gray-400 hover:text-white transition-colors">How to Use</Link>
                 <Link to="/contact" className="block text-sm text-gray-400 hover:text-white transition-colors">Contact Us</Link>
+                <Link to="/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">Privacy Policy</Link>
+                <Link to="/terms" className="block text-sm text-gray-400 hover:text-white transition-colors">Terms & Conditions</Link>
               </div>
             </div>
             <div>
@@ -508,11 +510,18 @@ const LandingPage = () => {
               </div>
             </div>
           </div>
-          <div className="border-t border-white/10 pt-6 text-center space-y-1">
+          <div className="border-t border-white/10 pt-6 text-center space-y-2">
             <p className="text-gray-300 text-sm">
               Made with ❤️ in house of{" "}
               <a href="https://flutterfox.in" rel="dofollow" target="_blank" className="text-blue-400 hover:text-blue-300 underline font-semibold">Flutter Fox</a>
             </p>
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              <Link to="/privacy" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">Privacy Policy</Link>
+              <span className="text-gray-700 text-xs">|</span>
+              <Link to="/terms" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">Terms & Conditions</Link>
+              <span className="text-gray-700 text-xs">|</span>
+              <Link to="/contact" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">Contact Us</Link>
+            </div>
             <p className="text-gray-600 text-xs">© {new Date().getFullYear()} poketbook by Flutter Fox. All Rights Reserved. | poketbook.in</p>
           </div>
         </div>

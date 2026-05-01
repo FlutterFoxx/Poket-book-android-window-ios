@@ -17,6 +17,8 @@ import BalanceSheet from "@/pages/BalanceSheet";
 import ExportPage from "@/pages/ExportPage";
 
 import SettingsPage from "@/pages/SettingsPage";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsAndConditions from "@/pages/TermsAndConditions";
 
 const Layout = ({ children }) => (
   <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-page)" }}>
@@ -48,6 +50,8 @@ function AppInner() {
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/how-to-use" element={<HowToUsePage />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/contact" element={<ContactUsPage />} />
           <Route path="/superadmin" element={<SuperAdminPage />} />
           <Route path="/parties" element={<ProtectedRoute><Layout><PartyManagement /></Layout></ProtectedRoute>} />
