@@ -1,13 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Users, Shield, Activity, RefreshCw, CheckCircle, XCircle, ChevronDown } from "lucide-react";
 
 const PLANS = ["trial", "weekly", "monthly", "yearly"];
-const PLAN_DAYS = { trial: 15, weekly: 7, monthly: 30, yearly: 365 };
+const PLAN_DAYS = { trial: 7, weekly: 7, monthly: 30, yearly: 365 };
 
 const SuperAdminPage = () => {
   const { user, loading } = useAuth();
@@ -17,9 +16,7 @@ const SuperAdminPage = () => {
   const [updatingId, setUpdatingId] = useState(null);
   const [activePlan, setActivePlan] = useState({});
 
-  if (loading) return <div className="flex h-screen items-center justify-center" style={{ background: "#0A0F1E" }}><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
-  if (!user || !["superadmin", "admin"].includes(user.role)) return <Navigate to="/" replace />;
-
+  // ALL hooks must be called before any conditional returns
   const fetchData = useCallback(async () => {
     setDataLoading(true);
     try {
@@ -33,9 +30,21 @@ const SuperAdminPage = () => {
       toast.error(err.response?.data?.detail || "Failed to load data");
     }
     setDataLoading(false);
-  }, []); // api, toast, setStats, setUsers are all stable references — intentional empty array
+  }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (user && ["superadmin", "admin"].includes(user.role)) {
+      fetchData();
+    }
+  }, [user, fetchData]);
+
+  // Conditional returns AFTER all hooks
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center" style={{ background: "#0A0F1E" }}>
+      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+  if (!user || !["superadmin", "admin"].includes(user.role)) return <Navigate to="/" replace />;
 
   const handleActivate = async (userId, planType) => {
     setUpdatingId(userId);
@@ -94,7 +103,9 @@ const SuperAdminPage = () => {
         {/* Users Table */}
         <div className="rounded-2xl border border-white/10 overflow-hidden" style={{ background: "#111827" }}>
           <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Shield size={18} className="text-purple-400" /> All Users</h2>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Shield size={18} className="text-purple-400" /> All Users
+            </h2>
             <span className="text-sm text-gray-400">{users.length} users</span>
           </div>
           <div className="overflow-x-auto">
@@ -109,8 +120,12 @@ const SuperAdminPage = () => {
               <tbody>
                 {dataLoading ? (
                   Array(5).fill(0).map((_, i) => (
-                    <tr key={`skeleton-row-${i}`} className="border-b border-white/5">
-                      {Array(7).fill(0).map((_, j) => <td key={`skeleton-cell-${i}-${j}`} className="px-4 py-3"><div className="h-4 bg-white/5 rounded animate-pulse" /></td>)}
+                    <tr key={`skeleton-${i}`} className="border-b border-white/5">
+                      {Array(7).fill(0).map((_, j) => (
+                        <td key={`cell-${i}-${j}`} className="px-4 py-3">
+                          <div className="h-4 bg-white/5 rounded animate-pulse" />
+                        </td>
+                      ))}
                     </tr>
                   ))
                 ) : users.length === 0 ? (
@@ -118,9 +133,7 @@ const SuperAdminPage = () => {
                 ) : users.map((u) => (
                   <tr key={u.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                     <td className="px-4 py-3 text-sm font-medium text-white">{u.name || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400 font-mono">
-                      {u.email || u.phone || "—"}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400 font-mono">{u.email || u.phone || "—"}</td>
                     <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(u.created_at)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -129,7 +142,7 @@ const SuperAdminPage = () => {
                         u.subscription_type === "weekly" ? "bg-blue-500/20 text-blue-300" :
                         "bg-amber-500/20 text-amber-300"
                       }`}>
-                        {u.subscription_type}
+                        {u.subscription_type || "trial"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(u.subscription_expires_at)}</td>
@@ -149,7 +162,7 @@ const SuperAdminPage = () => {
                         <div className="relative">
                           <select
                             value={activePlan[u.id] || "monthly"}
-                            onChange={e => setActivePlan(p => ({...p, [u.id]: e.target.value}))}
+                            onChange={e => setActivePlan(p => ({ ...p, [u.id]: e.target.value }))}
                             className="bg-white/5 border border-white/10 text-white text-xs rounded px-2 py-1 pr-6 focus:outline-none focus:border-blue-500 appearance-none"
                           >
                             {PLANS.map(p => <option key={p} value={p} className="bg-gray-900">{p} ({PLAN_DAYS[p]}d)</option>)}

@@ -308,46 +308,6 @@ const steps = [
         </div>
       </div>
     )
-  },
-  {
-    id: 9, emoji: "👑", title: "SuperAdmin Panel",
-    desc: "SuperAdmin login (superadmin@poketbook.in) se poora user management control milta hai. Sab users ki subscription status, trial expiry, aur plan activate karne ka option milta hai.",
-    tips: ["SuperAdmin URL: /superadmin","Stats: Total users, Active, Trial, Expired","Plan dropdown: Trial/Weekly/Monthly/Yearly","Activate button: Instantly user ka subscription set karo"],
-    screen: (
-      <div style={{ background: "#0A0F1E" }}>
-        <div className="px-3 py-2.5 flex items-center justify-between border-b border-white/10" style={{ background: "#0F172A" }}>
-          <div className="flex items-center gap-2">
-            <img src={LOGO} alt="poketbook" className="w-6 h-6 object-contain" />
-            <span className="text-sm font-bold text-white">poketbook</span>
-            <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded font-bold">SuperAdmin</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-4 gap-2 p-3">
-          {[["24","Total Users","text-blue-400"],["18","Active","text-green-400"],["4","Trial","text-amber-400"],["2","Expired","text-red-400"]].map(([v,l,c]) => (
-            <div key={l} className="rounded-lg p-2.5 border border-white/10 text-center" style={{ background: "#111827" }}>
-              <div className={`text-xl font-black ${c}`}>{v}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{l}</div>
-            </div>
-          ))}
-        </div>
-        <div className="px-3 pb-3">
-          <div className="rounded-lg overflow-hidden border border-white/10">
-            <div className="grid grid-cols-4 text-xs px-3 py-2 font-semibold text-gray-400 border-b border-white/10" style={{ background: "#111827" }}>
-              <div>User</div><div>Plan</div><div>Status</div><div>Action</div>
-            </div>
-            {[["Ramesh Kumar","monthly","Active 28d","green"],["Priya Gupta","trial","Active 5d","amber"],["Mohan Das","yearly","Active 340d","green"]].map(([n,p,s,c]) => (
-              <div key={n} className="grid grid-cols-4 text-xs px-3 py-2 border-b border-white/5 items-center" style={{ background: "#111827" }}>
-                <div className="text-white truncate">{n}</div>
-                <div className={`text-${c}-400 font-semibold`}>{p}</div>
-                <div className={`text-${c}-400 text-xs`}>{s}</div>
-                <button className="text-xs font-bold text-black px-1.5 py-1 rounded" style={{ background: "#22C55E" }}>Set</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  },
 ];
 
 const faqs = [
