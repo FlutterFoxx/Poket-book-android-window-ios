@@ -308,6 +308,7 @@ const steps = [
         </div>
       </div>
     )
+  },
 ];
 
 const faqs = [
