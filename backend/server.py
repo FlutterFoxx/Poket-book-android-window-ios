@@ -187,6 +187,19 @@ async def get_party_balance(party_id: str) -> float:
     )
     return last.get("balance", 0.0) if last else 0.0
 
+def _fmt_dt(dt) -> str:
+    """Serialize a datetime to ISO-8601 string with explicit UTC offset (+00:00).
+    MongoDB Motor returns naive datetimes (no tzinfo) even though they're UTC.
+    Without the +00:00 suffix, browsers treat the string as local time → wrong IST display.
+    """
+    if dt is None:
+        return ""
+    if hasattr(dt, "replace"):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
+    return str(dt)
+
 def format_entry(e: dict) -> dict:
     return {
         "id": str(e["_id"]),
@@ -201,7 +214,7 @@ def format_entry(e: dict) -> dict:
         "balance": e.get("balance", 0.0),
         "is_locked": e.get("is_locked", False),
         "tally_id": e.get("tally_id"),
-        "created_at": e.get("created_at").isoformat() if hasattr(e.get("created_at"), "isoformat") else str(e.get("created_at", "")),
+        "created_at": _fmt_dt(e.get("created_at")),
     }
 
 # ─── Startup ──────────────────────────────────────────────────────────────────
