@@ -77,6 +77,12 @@ const Dashboard = () => {
   const greeting = hour < 12 ? "Subah" : hour < 17 ? "Dopahar" : "Shaam";
   const fmtDate = (d) => { try { return new Date(d).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
 
+  const sub = user?.subscription;
+  const subDays = sub?.days_remaining ?? null;
+  const subType = sub?.subscription_type || "trial";
+  const subActive = sub?.is_active;
+  const subColor = subDays !== null && subDays <= 3 ? "#EF4444" : subDays !== null && subDays <= 7 ? "#F59E0B" : "#22C55E";
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-body)" }}>
 
@@ -106,6 +112,35 @@ const Dashboard = () => {
             <IndianRupee size={16} /> New Entry
           </Link>
         </div>
+
+        {/* ── Subscription Status ───────────────────────────────── */}
+        {sub && (
+          <div className="pk-card" style={{ borderLeft: `4px solid ${subColor}`, padding: "12px 16px" }} data-testid="subscription-card">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
+                  {subType.toUpperCase()} PLAN
+                </p>
+                {subDays !== null && subActive ? (
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                    <span style={{ fontSize: "28px", fontWeight: 800, fontFamily: "var(--font-mono)", color: subColor, lineHeight: 1 }}>{subDays}</span>
+                    <span style={{ fontSize: "13px", color: "var(--text-secondary)", fontWeight: 500 }}>days remaining</span>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: "13px", color: "#EF4444", fontWeight: 600 }}>Expired — Renew now</p>
+                )}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span style={{ background: subActive ? "#DCFCE7" : "#FEE2E2", color: subActive ? "#166534" : "#991B1B", borderRadius: "20px", padding: "4px 12px", fontSize: "12px", fontWeight: 700 }}>
+                  {subActive ? "Active" : "Expired"}
+                </span>
+                {subDays !== null && subDays <= 7 && subActive && (
+                  <p style={{ fontSize: "11px", color: subColor, marginTop: "6px", fontWeight: 600 }}>Renew soon!</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Backup Section ────────────────────────────────────── */}
         <div className="pk-card">

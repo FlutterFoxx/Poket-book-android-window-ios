@@ -43,6 +43,7 @@ const LedgerPage = () => {
   const [selectedEntries, setSelectedEntries] = useState(new Set());
   const [liveTime, setLiveTime] = useState(new Date()); // live clock
   const [isEntryOpen, setIsEntryOpen] = useState(true); // mobile curtain panel toggle
+  const savingLockRef = useRef(false); // prevent duplicate submissions
 
   const naamRef = useRef(null);
   const jamaRef = useRef(null);
@@ -163,9 +164,11 @@ const LedgerPage = () => {
   const handleFastPartyChange = (pid) => setFastEntry(p => ({ ...p, partyId: pid }));
 
   const handleSave = async () => {
+    if (savingLockRef.current) return; // prevent double-submit
     const targetParty = fastEntry.partyId;
-    if (!targetParty) { toast.error("Neeche se party select karein"); return; }
-    if (!fastEntry.naam && !fastEntry.jama) { toast.error("नाम या जमा amount likhein"); return; }
+    if (!targetParty) { toast.error("Neeche se party select karein", { duration: 1500 }); return; }
+    if (!fastEntry.naam && !fastEntry.jama) { toast.error("नाम या जमा amount likhein", { duration: 1500 }); return; }
+    savingLockRef.current = true;
     setSaving(true);
     try {
       await api.post(`/api/ledger/${selectedId}/entries`, {
@@ -175,13 +178,14 @@ const LedgerPage = () => {
         narration: fastEntry.narration,
         counterparty_id: targetParty,
       });
-      toast.success("Entry save ho gayi");
-      playSaveSound();  // 🔔 beep + vibrate
+      toast.success("Entry save ho gayi", { duration: 1500 });
+      playSaveSound();
       setFastEntry({ ...EMPTY_FAST, partyId: "", date: today() });
       fetchEntries(selectedId);
       setTimeout(() => naamRef.current?.focus(), 100);
-    } catch (err) { toast.error(err.response?.data?.detail || "Entry save nahi hui"); }
+    } catch (err) { toast.error(err.response?.data?.detail || "Entry save nahi hui", { duration: 1500 }); }
     setSaving(false);
+    savingLockRef.current = false;
   };
 
   // Enter = navigate to next field (Tab-like). Only pressing Enter on OK button posts.

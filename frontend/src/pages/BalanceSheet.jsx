@@ -87,12 +87,47 @@ const BalanceSheet = () => {
   const lena = data?.lena_hai || [];
   const dena = data?.dena_hai || [];
 
+  // Authenticated Excel download (direct <a href> won't include auth token)
+  const handleExcelDownload = async () => {
+    try {
+      const res = await api.get("/api/export/balance-sheet/excel", { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = `PoketBook_BalanceSheet_${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch { import("sonner").then(m => m.toast.error("Excel download failed", { duration: 1500 })); }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg-page)", fontFamily: "var(--font-body)" }}>
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div style={{ background: "var(--primary-gradient)", color: "#fff", padding: "12px 16px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+
+        {/* Desktop header row: title + all buttons inline */}
+        <div className="hidden md:flex" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+          <div>
+            <h1 style={{ fontSize: "18px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
+              {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex" }} data-testid="bs-refresh-btn">
+              <RefreshCw size={15} />
+            </button>
+            <button onClick={handlePrint} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-export-pdf-btn">
+              <Printer size={14} /> Print / PDF
+            </button>
+            <button onClick={handleExcelDownload} style={{ background: "#16A34A", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-export-excel-btn">
+              <FileSpreadsheet size={14} /> Excel
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile header: title + refresh in one row */}
+        <div className="flex md:hidden" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
             <h1 style={{ fontSize: "18px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
@@ -103,36 +138,17 @@ const BalanceSheet = () => {
             <RefreshCw size={15} />
           </button>
         </div>
-        {/* Print + Excel — full width row on mobile */}
-        <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-          <button onClick={handlePrint} style={{ flex: 1, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }} data-testid="bs-export-pdf-btn">
+
+        {/* Mobile-only: Print + Excel full-width */}
+        <div className="flex md:hidden" style={{ gap: "8px", marginTop: "10px" }}>
+          <button onClick={handlePrint} style={{ flex: 1, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }} data-testid="bs-export-pdf-btn-m">
             <Printer size={16} /> Print / PDF
           </button>
-          <a href={`${process.env.REACT_APP_BACKEND_URL}/api/export/balance-sheet/excel`} target="_blank" rel="noopener noreferrer"
-            style={{ flex: 1, background: "#16A34A", border: "none", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", textDecoration: "none" }} data-testid="bs-export-excel-btn">
+          <button onClick={handleExcelDownload} style={{ flex: 1, background: "#16A34A", border: "none", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }} data-testid="bs-export-excel-btn-m">
             <FileSpreadsheet size={16} /> Excel
-          </a>
+          </button>
         </div>
 
-        {/* Net balance summary */}
-        {!loading && data && (
-          <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
-            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: "8px", padding: "8px 14px", fontSize: "13px" }}>
-              <span style={{ color: "rgba(255,255,255,0.7)" }}>Dena Hai: </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>₹{fmt(data.total_payable)}</span>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", marginLeft: "4px" }}>[{dena.length}]</span>
-            </div>
-            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: "8px", padding: "8px 14px", fontSize: "13px" }}>
-              <span style={{ color: "rgba(255,255,255,0.7)" }}>Lena Hai: </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>₹{fmt(data.total_receivable)}</span>
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", marginLeft: "4px" }}>[{lena.length}]</span>
-            </div>
-            <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: "8px", padding: "8px 14px", fontSize: "13px" }} data-testid="bs-net-balance">
-              <span style={{ color: "rgba(255,255,255,0.7)" }}>Net: </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "#fff" }}>{netBal.text}</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Two independently scrollable columns ────────────────── */}

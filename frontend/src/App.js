@@ -1,6 +1,7 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LangProvider } from "@/contexts/LangContext";
 import { Toaster } from "sonner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Navbar from "@/components/Navbar";
@@ -38,11 +39,11 @@ const RootRoute = () => {
   return <Layout><Dashboard /></Layout>;
 };
 
-function App() {
+function AppInner() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-right" duration={1500} />
         <Routes>
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
@@ -62,4 +63,6 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return <LangProvider><AppInner /></LangProvider>;
+}

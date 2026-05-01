@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { LangToggle } from "@/contexts/LangContext";
 import {
   LayoutDashboard, Users, BookOpen, Scale, FileText,
   LogOut, ChevronDown, Menu, X, Settings,
@@ -129,6 +130,11 @@ const Navbar = () => {
 
         {/* User menu dropdown (desktop) */}
         <UserMenu user={user} logout={logout} menuRef={menuRef} />
+
+        {/* Language Toggle (desktop) */}
+        <div className="hidden sm:block ml-2 flex-shrink-0">
+          <LangToggle />
+        </div>
 
         {/* Mobile hamburger */}
         <button

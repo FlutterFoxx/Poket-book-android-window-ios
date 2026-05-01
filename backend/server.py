@@ -201,7 +201,7 @@ def format_entry(e: dict) -> dict:
         "balance": e.get("balance", 0.0),
         "is_locked": e.get("is_locked", False),
         "tally_id": e.get("tally_id"),
-        "created_at": str(e.get("created_at", "")),
+        "created_at": e.get("created_at").isoformat() if hasattr(e.get("created_at"), "isoformat") else str(e.get("created_at", "")),
     }
 
 # ─── Startup ──────────────────────────────────────────────────────────────────
