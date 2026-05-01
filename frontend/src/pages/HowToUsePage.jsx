@@ -348,7 +348,7 @@ const HowToUsePage = () => {
       <section className="py-14 px-4 text-center" style={{ background: "var(--primary-gradient)" }}>
         <div className="max-w-3xl mx-auto">
           <img src={LOGO} alt="poketbook" className="w-16 h-16 mx-auto mb-4 object-contain" />
-          <h1 className="text-3xl sm:text-4xl font-black mb-3" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+          <h1 className="text-3xl sm:text-4xl font-black mb-3 text-white" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
             Kaise Use Karein?
           </h1>
           <p className="text-gray-300 text-base sm:text-lg max-w-xl mx-auto mb-5">
@@ -439,7 +439,7 @@ const HowToUsePage = () => {
       {/* Keyboard Shortcuts */}
       <section className="py-14 px-4" style={{ background: "#0D1117" }}>
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl font-black mb-8 text-center" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+          <h2 className="text-2xl sm:text-3xl font-black mb-8 text-center text-white" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
             ⌨️ Keyboard Shortcuts
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -461,7 +461,7 @@ const HowToUsePage = () => {
       {/* FAQ */}
       <section className="py-14 px-4">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl font-black mb-8 text-center" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+          <h2 className="text-2xl sm:text-3xl font-black mb-8 text-center text-white" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
             ❓ FAQ
           </h2>
           <div className="space-y-3">
@@ -485,7 +485,7 @@ const HowToUsePage = () => {
 
       {/* CTA */}
       <section className="py-14 px-4 text-center" style={{ background: "linear-gradient(135deg, #0F2A0F 0%, #0A1628 100%)" }}>
-        <h2 className="text-2xl sm:text-3xl font-black mb-3" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>Tayaar Ho? Abhi Shuru Karein!</h2>
+        <h2 className="text-2xl sm:text-3xl font-black mb-3 text-white" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>Tayaar Ho? Abhi Shuru Karein!</h2>
         <p className="text-gray-300 mb-6">7-day FREE trial — koi credit card nahi chahiye</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link to="/login" className="bg-green-500 hover:bg-green-400 text-black font-black px-8 py-3.5 rounded-xl text-base transition-colors inline-flex items-center justify-center gap-2">
