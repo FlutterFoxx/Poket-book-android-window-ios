@@ -1232,14 +1232,28 @@ async def export_csv_backup(current_user: dict = Depends(get_current_user)):
     return Response(content=csv_content, media_type="text/csv",
                     headers={"Content-Disposition": f"attachment; filename=poketbook_backup_{datetime.now().strftime('%Y%m%d')}.csv"})
 
-# ─── Google Sheets OAuth (Placeholder — activate with GOOGLE_CLIENT_SECRET) ───
+# ─── Google Sheets OAuth ───────────────────────────────────────────────────────
+
+def _build_redirect_uri(request: Request) -> str:
+    """Dynamically construct redirect URI from incoming request host.
+    Works on preview URL, poketbook.in, and any future domain automatically.
+    Requires that URL is registered in Google Cloud Console."""
+    forwarded_host = request.headers.get("x-forwarded-host", "")
+    forwarded_proto = request.headers.get("x-forwarded-proto", "https")
+    host = request.headers.get("host", "")
+    # Prefer x-forwarded-host (set by Kubernetes ingress with the real external domain)
+    real_host = forwarded_host.split(",")[0].strip() if forwarded_host else host.split(":")[0]
+    if real_host and "." in real_host and real_host != "localhost":
+        return f"{forwarded_proto}://{real_host}/api/oauth/sheets/callback"
+    # Fallback to env var
+    return os.environ.get("GOOGLE_REDIRECT_URI", "")
 
 @api_router.get("/oauth/sheets/connect")
-async def sheets_connect_url(current_user: dict = Depends(get_current_user)):
+async def sheets_connect_url(request: Request, current_user: dict = Depends(get_current_user)):
     """Returns Google OAuth URL for Sheets access"""
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "PLACEHOLDER")
-    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI", "")
+    redirect_uri = _build_redirect_uri(request)
     if client_secret == "PLACEHOLDER":
         return {"error": "Google Sheets integration not configured.", "configured": False}
     try:
@@ -1254,6 +1268,7 @@ async def sheets_connect_url(current_user: dict = Depends(get_current_user)):
         url, state = flow.authorization_url(access_type="offline", prompt="consent")
         await db.oauth_states.insert_one({
             "state": state, "user_id": current_user["_id"],
+            "redirect_uri": redirect_uri,
             "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
         })
         return {"url": url, "configured": True}
@@ -1272,10 +1287,11 @@ async def sheets_oauth_callback(request: Request, code: str = None, state: str =
         if not state_doc:
             return RedirectResponse(url="/?sheets=error&reason=invalid_state")
         user_id = state_doc["user_id"]
+        # Use the redirect_uri stored at connect time (must match Google exactly)
+        redirect_uri = state_doc.get("redirect_uri") or _build_redirect_uri(request)
         await db.oauth_states.delete_one({"state": state})
         client_id = os.environ.get("GOOGLE_CLIENT_ID")
         client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
-        redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI")
         from google_auth_oauthlib.flow import Flow
         flow = Flow.from_client_config(
             {"web": {"client_id": client_id, "client_secret": client_secret,
