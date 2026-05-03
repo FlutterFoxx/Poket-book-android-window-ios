@@ -404,16 +404,30 @@ const LandingPage = () => {
           <h2 className="text-2xl sm:text-3xl font-black mb-3" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>Our Parent Company</h2>
           <p className="text-gray-400 mb-6">poketbook is proudly built by</p>
           <div className="rounded-2xl p-6 sm:p-8 border border-white/10 inline-block max-w-sm w-full" style={{ background: "#111827" }}>
-            <div className="text-2xl sm:text-3xl font-black text-white mb-2">Flutter Fox</div>
+            {/* Flutter Fox gradient logo — matches flutterfox.in brand */}
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #FFB347 0%, #FF69B4 100%)" }}>
+                <span className="text-white font-black text-lg">F</span>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black"
+                style={{ background: "linear-gradient(135deg, #FFB347, #FF69B4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                Flutter Fox
+              </div>
+            </div>
             <p className="text-gray-400 text-sm mb-5">Web &amp; Mobile App Development, New Delhi, India</p>
             <a href="https://flutterfox.in" rel="dofollow" target="_blank"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-lg transition-colors text-sm">
+              className="inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-lg transition-all text-sm text-white hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #FFB347, #FF69B4)" }}>
               <ExternalLink size={15} /> Visit flutterfox.in
             </a>
           </div>
           <p className="mt-5 text-sm text-gray-500">
             Made with ❤️ in house of{" "}
-            <a href="https://flutterfox.in" rel="dofollow" target="_blank" className="text-blue-400 hover:text-blue-300 underline">Flutter Fox</a>
+            <a href="https://flutterfox.in" rel="dofollow" target="_blank"
+              style={{ background: "linear-gradient(135deg, #FFB347, #FF69B4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontWeight: 700, textDecoration: "underline" }}>
+              Flutter Fox
+            </a>
           </p>
         </div>
       </section>
@@ -438,10 +452,12 @@ const LandingPage = () => {
               <div className="text-sm text-green-400">+91 81300 95013</div>
               <div className="text-xs text-gray-500 mt-1">Mon–Sat 10am–7pm IST</div>
             </a>
-            <a href="https://flutterfox.in" rel="dofollow" target="_blank" className="rounded-2xl p-5 sm:p-6 flex flex-col items-center text-center border border-white/10 hover:border-purple-500/50 transition-colors" style={{ background: "#111827" }}>
-              <div className="w-11 h-11 bg-purple-600 rounded-xl flex items-center justify-center mb-3"><ExternalLink size={20} /></div>
-              <div className="font-bold text-white mb-1">Flutter Fox</div>
-              <div className="text-sm text-purple-400">flutterfox.in</div>
+            <a href="https://flutterfox.in" rel="dofollow" target="_blank" className="rounded-2xl p-5 sm:p-6 flex flex-col items-center text-center border border-white/10 hover:border-orange-500/50 transition-colors" style={{ background: "#111827" }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ background: "linear-gradient(135deg, #FFB347, #FF69B4)" }}>
+                <span className="text-white font-black text-lg">F</span>
+              </div>
+              <div className="font-bold mb-1" style={{ background: "linear-gradient(135deg, #FFB347, #FF69B4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Flutter Fox</div>
+              <div className="text-sm text-orange-400">flutterfox.in</div>
               <div className="text-xs text-gray-500 mt-1">Our parent company</div>
             </a>
           </div>

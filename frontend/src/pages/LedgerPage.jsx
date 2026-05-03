@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
 import { toast } from "sonner";
-import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
+import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, Sparkles, MessageCircle } from "lucide-react";
 
 const EMPTY_FAST = { date: today(), partyId: "", naam: "", jama: "", narration: "" };
 
@@ -42,8 +42,11 @@ const LedgerPage = () => {
   const [tallyConfirm, setTallyConfirm] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState(new Set());
   const [liveTime, setLiveTime] = useState(new Date()); // live clock
-  const [isEntryOpen, setIsEntryOpen] = useState(true); // mobile curtain panel toggle
-  const savingLockRef = useRef(false); // prevent duplicate submissions
+  const [isEntryOpen, setIsEntryOpen] = useState(true);
+  const savingLockRef = useRef(false);
+  const [aiText, setAiText] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const naamRef = useRef(null);
   const jamaRef = useRef(null);
@@ -194,6 +197,43 @@ const LedgerPage = () => {
       e.preventDefault();
       if (nextRef?.current) nextRef.current.focus();
     }
+  };
+
+  // AI natural language entry parser
+  const handleAiParse = async () => {
+    if (!aiText.trim()) return;
+    setAiLoading(true);
+    try {
+      const partyNames = parties.map(p => p.name);
+      const res = await api.post("/api/ai/parse-entry", { text: aiText, parties: partyNames });
+      const { party, amount, type, narration, confidence } = res.data;
+      if (confidence < 0.4) { toast.error("Samajh nahi aaya — please clearly likho", { duration: 2000 }); setAiLoading(false); return; }
+      // Match party name to existing party
+      const matched = parties.find(p => p.name.toLowerCase().includes(party?.toLowerCase()) || party?.toLowerCase().includes(p.name.toLowerCase()));
+      setFastEntry(prev => ({
+        ...prev,
+        partyId: matched?.id || prev.partyId,
+        naam: type === "naam" ? String(amount || 0) : "",
+        jama: type === "jama" ? String(amount || 0) : "",
+        narration: narration || prev.narration,
+      }));
+      toast.success(`AI: ${party} — ₹${amount} (${type === "naam" ? "Credit/नाम" : "Debit/जमा"})`, { duration: 2000 });
+      setAiOpen(false); setAiText("");
+    } catch { toast.error("AI temporarily unavailable", { duration: 1500 }); }
+    setAiLoading(false);
+  };
+
+  // WhatsApp share — text summary of current party ledger
+  const handleWhatsAppShare = () => {
+    if (!partyInfo || !selectedId) return;
+    const bal = balLabel(currentBalance);
+    const totalNaam = entries.reduce((s, e) => s + (e.naam || 0), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const totalJama = entries.reduce((s, e) => s + (e.jama || 0), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const last3 = [...entries].slice(-3).map(e =>
+      `• ${e.date} | ${e.naam > 0 ? `Credit ₹${e.naam}` : `Debit ₹${e.jama}`}${e.narration ? ` (${e.narration})` : ""}`
+    ).join("\n");
+    const msg = `*PoketBook — Ledger Statement*\n\n*Party:* ${toTitleCase(partyInfo.name)}\n*Balance:* ₹${bal.text}\n*Total Credit (नाम):* ₹${totalNaam}\n*Total Debit (जमा):* ₹${totalJama}\n*Entries:* ${entries.length}\n\n*Last Transactions:*\n${last3}\n\n_Powered by PoketBook — poketbook.in_`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const handleEditSave = async () => {
@@ -388,7 +428,7 @@ const LedgerPage = () => {
           </div>
         </div>
 
-        {/* Tally + Print */}
+        {/* Tally + Print + WhatsApp + AI */}
         {selectedId && (
           <div className="flex items-center gap-1.5 sm:gap-2">
             {unlocked > 0 && (
@@ -398,6 +438,18 @@ const LedgerPage = () => {
                 <Lock size={12} /> <span className="hidden sm:inline">Tally</span> ({unlocked})
               </button>
             )}
+            <button onClick={handleWhatsAppShare}
+              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white rounded transition-colors"
+              style={{ background: "#25D366" }}
+              data-testid="whatsapp-share-btn" title="Share on WhatsApp">
+              <MessageCircle size={13} /> <span className="hidden sm:inline">Share</span>
+            </button>
+            <button onClick={() => setAiOpen(o => !o)}
+              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white rounded transition-colors"
+              style={{ background: aiOpen ? "#7C3AED" : "#8B5CF6" }}
+              data-testid="ai-entry-btn" title="AI Entry (type in Hindi/English)">
+              <Sparkles size={13} /> <span className="hidden sm:inline">AI</span>
+            </button>
             <button onClick={handlePrint}
               className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold bg-stone-600 text-white hover:bg-stone-700 rounded transition-colors"
               data-testid="export-pdf-btn">
@@ -406,6 +458,32 @@ const LedgerPage = () => {
           </div>
         )}
       </div>
+
+      {/* AI Entry Panel */}
+      {selectedId && aiOpen && (
+        <div className="flex-shrink-0 px-3 sm:px-5 py-2.5 border-b border-purple-200" style={{ background: "#F5F3FF" }}>
+          <div className="flex items-center gap-2 max-w-xl">
+            <Sparkles size={14} className="text-purple-600 flex-shrink-0" />
+            <input
+              autoFocus
+              value={aiText}
+              onChange={e => setAiText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleAiParse(); if (e.key === "Escape") setAiOpen(false); }}
+              placeholder='Type in Hindi/English: "Vansh ko 500 dena hai" or "Ramesh ne 1000 diya"'
+              className="flex-1 text-sm border border-purple-300 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
+              data-testid="ai-input"
+            />
+            <button onClick={handleAiParse} disabled={aiLoading || !aiText.trim()}
+              className="px-3 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50 transition-colors"
+              style={{ background: "#7C3AED" }}>
+              {aiLoading ? "..." : "Parse"}
+            </button>
+            <button onClick={() => setAiOpen(false)} className="text-stone-400 hover:text-stone-600">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Full Account Info Panel ── */}
       {showFullAccount && partyInfo && selectedId && (

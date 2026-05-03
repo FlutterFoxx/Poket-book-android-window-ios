@@ -850,7 +850,8 @@ async def export_ledger_pdf(
 ):
     from reportlab.lib.pagesizes import landscape, A4
     from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_RIGHT
 
     p = await db.parties.find_one({"_id": ObjectId(party_id), "user_id": current_user["_id"]})
     if not p:
@@ -859,6 +860,7 @@ async def export_ledger_pdf(
     entries, cp_map = await _load_entries_with_cp_names(party_id, _build_date_query(start_date, end_date))
     date_range = f"{start_date or 'All'} to {end_date or 'Today'}"
     styles = getSampleStyleSheet()
+    brand_style = ParagraphStyle("brand", fontSize=7, textColor=__import__("reportlab.lib.colors", fromlist=["colors"]).HexColor("#6B7280"), alignment=TA_RIGHT)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
@@ -870,6 +872,8 @@ async def export_ledger_pdf(
         Paragraph(f"Period: {date_range}   |   Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles["Normal"]),
         Spacer(1, 12),
         t,
+        Spacer(1, 8),
+        Paragraph("PoketBook — Digital Udhar Khaata | Powered by Flutter Fox (flutterfox.in)", brand_style),
     ]
     doc.build(elements)
     buf.seek(0)
@@ -1056,12 +1060,16 @@ async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
     net_style  = ParagraphStyle("net", fontSize=9, fontName="Helvetica-Bold",
                                 textColor=colors.HexColor(net_color), alignment=TA_RIGHT)
 
+    brand_style = ParagraphStyle("brand_bs", fontSize=7, fontName="Helvetica",
+                                  textColor=colors.HexColor("#9CA3AF"), alignment=TA_RIGHT)
     elements = [
         Paragraph("Balance Sheet", title_style),
         Paragraph(f"Generated: {datetime.now(timezone.utc).strftime('%d %B %Y')}", sub_style),
         t,
         Spacer(1, 6),
         Paragraph(f"Net Balance: ₹{fmt_inr(abs(net))} — {net_label}", net_style),
+        Spacer(1, 4),
+        Paragraph("PoketBook — Digital Udhar Khaata | Powered by Flutter Fox (flutterfox.in)", brand_style),
     ]
     doc.build(elements)
     buf.seek(0)
@@ -1574,6 +1582,62 @@ async def _scheduled_backup_task():
             logging.info(f"Scheduled backup sent to {user.get('backup_email')}")
         except Exception as e:
             logging.error(f"Scheduled backup failed for {user.get('_id')}: {e}")
+
+# ─── AI Natural Language Entry Parser ────────────────────────────────────────
+
+class AIParseRequest(BaseModel):
+    text: str
+    parties: List[str] = []   # existing party names for matching
+
+@api_router.post("/ai/parse-entry")
+async def ai_parse_entry(data: AIParseRequest, current_user: dict = Depends(get_current_user)):
+    """Parse Hindi/English natural language into ledger entry fields.
+    e.g. 'Vansh ko 500 dena hai' → {party: 'Vansh', amount: 500, type: 'naam'}
+    """
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        llm_key = os.environ.get("EMERGENT_LLM_KEY", "")
+        if not llm_key:
+            raise HTTPException(400, "AI not configured")
+
+        party_list = ", ".join(data.parties[:30]) if data.parties else "none"
+        chat = LlmChat(
+            api_key=llm_key,
+            session_id=f"parse_{current_user['_id']}_{datetime.now().timestamp()}",
+            system_message="""You are an accounting assistant for an Indian ledger app (PoketBook).
+Parse natural language Hindi/English text into structured ledger entry data.
+
+ACCOUNTING RULES:
+- NAAM (Credit) = party owes us / party took from us / lena hai party se = type "naam"
+- JAMA (Debit) = party paid us / party gave us money / dena hai mujhe = type "jama"
+
+Examples:
+"Vansh ko 500 dena hai" → naam (Vansh owes us 500 / we gave credit to Vansh)
+"Ramesh se 1000 lena hai" → naam (Ramesh owes us 1000)
+"Suresh ne 200 diya" → jama (Suresh paid us 200)
+"Mujhe Deepak ko 300 dena hai" → jama (we owe Deepak)
+"Priya ka 1500 baaki hai" → naam (Priya owes us)
+
+Return ONLY valid JSON, no explanation:
+{"party": "Name", "amount": 500, "type": "naam|jama", "narration": "brief note", "confidence": 0.9}
+
+If amount or party unclear, set confidence < 0.5."""
+        ).with_model("openai", "gpt-4.1-mini")
+
+        msg = UserMessage(text=f"Known parties: {party_list}\n\nText to parse: {data.text}")
+        response = await chat.send_message(msg)
+
+        import json as _json
+        # Extract JSON from response
+        txt = response.strip()
+        if "```" in txt:
+            txt = txt.split("```")[1].replace("json", "").strip()
+        result = _json.loads(txt)
+        return result
+    except Exception as e:
+        logging.error(f"AI parse error: {e}")
+        raise HTTPException(500, f"AI parse failed: {str(e)}")
+
 
 # ─── Mount & Shutdown ─────────────────────────────────────────────────────────
 

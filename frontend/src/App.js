@@ -32,8 +32,17 @@ const RootRoute = () => {
   if (loading) return (
     <div className="flex h-screen items-center justify-center" style={{ background: "#0A0F1E" }}>
       <div className="text-center">
-        <img src="/logo.png" alt="PoketBook" className="w-16 h-16 mx-auto mb-3 object-contain" />
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <img src="/logo.png" alt="PoketBook" className="w-16 h-16 mx-auto mb-4 object-contain animate-bounce" />
+        <p className="text-white font-bold text-lg mb-1" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+          Poket<span style={{ color: "#4ade80" }}>Book</span>
+        </p>
+        <div className="flex items-center justify-center gap-1 mt-3">
+          {[0,1,2].map(i => (
+            <div key={i} className="w-2 h-2 rounded-full bg-green-400"
+              style={{ animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+          ))}
+        </div>
+        <style>{`@keyframes pulse{0%,100%{opacity:.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}`}</style>
       </div>
     </div>
   );
