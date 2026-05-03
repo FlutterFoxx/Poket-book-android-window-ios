@@ -87,3 +87,12 @@ ehthumbs.db
 # ── Test reports ──────────────────────────────────────────────
 test_reports/
 *.json.bak
+-e 
+# Environment and credential files
+.env
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
