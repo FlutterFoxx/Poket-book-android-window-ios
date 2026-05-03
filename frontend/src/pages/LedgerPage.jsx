@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
 import { toast } from "sonner";
-import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, Sparkles, MessageCircle } from "lucide-react";
+import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, Sparkles, MessageCircle, Mic, MicOff } from "lucide-react";
 
 const EMPTY_FAST = { date: today(), partyId: "", naam: "", jama: "", narration: "" };
 
@@ -47,13 +47,32 @@ const LedgerPage = () => {
   const [aiText, setAiText] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
 
   const naamRef = useRef(null);
   const jamaRef = useRef(null);
   const narrationRef = useRef(null);
   const saveRef = useRef(null);
   const partySelectRef = useRef(null);
-  const tableContainerRef = useRef(null); // for auto-scroll to bottom
+  const tableContainerRef = useRef(null);
+  const sentinelRef = useRef(null); // virtual scroll sentinel
+
+  // Virtual scroll: show entries in pages of 80, load more on scroll
+  const [visibleCount, setVisibleCount] = useState(80);
+  const visibleEntries = useMemo(() => entries.slice(0, visibleCount), [entries, visibleCount]);
+
+  // IntersectionObserver: load more when sentinel enters viewport
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && visibleCount < entries.length) {
+        setVisibleCount(c => Math.min(c + 60, entries.length));
+      }
+    }, { rootMargin: "200px" });
+    obs.observe(sentinelRef.current);
+    return () => obs.disconnect();
+  }, [entries.length, visibleCount]);
 
   // Sound + vibration on successful entry save (silent fail intentional — Audio API may be unavailable)
   const playSaveSound = useCallback(() => {
@@ -113,7 +132,7 @@ const LedgerPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchParties(); }, []);
   useEffect(() => { if (urlPartyId) setSelectedId(urlPartyId); }, [urlPartyId]);
-  useEffect(() => { if (selectedId) fetchEntries(selectedId); }, [selectedId, fetchEntries]);
+  useEffect(() => { if (selectedId) { fetchEntries(selectedId); setVisibleCount(80); } }, [selectedId, fetchEntries]);
   useEffect(() => { setFastEntry(p => ({ ...p, partyId: "" })); }, [selectedId]);
 
   // F4 = edit most recent unlocked entry
@@ -223,7 +242,51 @@ const LedgerPage = () => {
     setAiLoading(false);
   };
 
-  // WhatsApp share — text summary of current party ledger
+  // Voice entry via Web Speech API
+  const handleVoiceEntry = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { toast.error("Voice not supported in this browser", { duration: 2000 }); return; }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const rec = new SpeechRecognition();
+    rec.lang = "hi-IN"; // Hindi primary, fallback to English
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    recognitionRef.current = rec;
+    rec.onstart = () => setIsListening(true);
+    rec.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      setAiText(text);
+      setAiOpen(true);
+      setIsListening(false);
+      // Auto-parse after voice
+      setTimeout(() => {
+        if (text.trim()) {
+          const partyNames = parties.map(p => p.name);
+          api.post("/api/ai/parse-entry", { text, parties: partyNames }).then(res => {
+            const { party, amount, type, narration, confidence } = res.data;
+            if (confidence >= 0.4) {
+              const matched = parties.find(p => p.name.toLowerCase().includes(party?.toLowerCase()) || party?.toLowerCase().includes(p.name.toLowerCase()));
+              setFastEntry(prev => ({
+                ...prev, partyId: matched?.id || prev.partyId,
+                naam: type === "naam" ? String(amount || 0) : "",
+                jama: type === "jama" ? String(amount || 0) : "",
+                narration: narration || prev.narration,
+              }));
+              toast.success(`Voice: ${party} — ₹${amount} (${type === "naam" ? "नाम" : "जमा"})`, { duration: 2000 });
+              setAiOpen(false); setAiText("");
+            }
+          }).catch(() => {});
+        }
+      }, 300);
+    };
+    rec.onerror = () => { setIsListening(false); toast.error("Voice recognition failed", { duration: 1500 }); };
+    rec.onend = () => setIsListening(false);
+    rec.start();
+  };
   const handleWhatsAppShare = () => {
     if (!partyInfo || !selectedId) return;
     const bal = balLabel(currentBalance);
@@ -428,32 +491,28 @@ const LedgerPage = () => {
           </div>
         </div>
 
-        {/* Tally + Print + WhatsApp + AI */}
+        {/* Tally + Print + WhatsApp + AI + Voice */}
         {selectedId && (
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center flex-wrap gap-1">
             {unlocked > 0 && (
               <button onClick={() => setTallyConfirm(true)}
-                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded transition-colors"
-                data-testid="tally-lock-btn">
-                <Lock size={12} /> <span className="hidden sm:inline">Tally</span> ({unlocked})
+                className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded transition-colors"
+                data-testid="tally-lock-btn" title={`Tally (${unlocked} entries)`}>
+                <Lock size={12} /> <span className="hidden lg:inline">Tally</span> ({unlocked})
               </button>
             )}
-            <button onClick={handleWhatsAppShare}
-              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white rounded transition-colors"
-              style={{ background: "#25D366" }}
-              data-testid="whatsapp-share-btn" title="Share on WhatsApp">
-              <MessageCircle size={13} /> <span className="hidden sm:inline">Share</span>
+            <button onClick={handleWhatsAppShare} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share on WhatsApp">
+              <MessageCircle size={13} /> <span className="hidden md:inline">Share</span>
             </button>
-            <button onClick={() => setAiOpen(o => !o)}
-              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white rounded transition-colors"
-              style={{ background: aiOpen ? "#7C3AED" : "#8B5CF6" }}
-              data-testid="ai-entry-btn" title="AI Entry (type in Hindi/English)">
-              <Sparkles size={13} /> <span className="hidden sm:inline">AI</span>
+            <button onClick={() => setAiOpen(o => !o)} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: aiOpen ? "#7C3AED" : "#8B5CF6" }} data-testid="ai-entry-btn" title="AI Entry">
+              <Sparkles size={13} /> <span className="hidden md:inline">AI</span>
             </button>
-            <button onClick={handlePrint}
-              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold bg-stone-600 text-white hover:bg-stone-700 rounded transition-colors"
-              data-testid="export-pdf-btn">
-              <Printer size={12} /> <span className="hidden sm:inline">Print</span>
+            <button onClick={handleVoiceEntry} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: isListening ? "#DC2626" : "#6D28D9" }} data-testid="voice-entry-btn" title="Voice Entry (Hindi/English)">
+              {isListening ? <MicOff size={13} className="animate-pulse" /> : <Mic size={13} />}
+              <span className="hidden md:inline">{isListening ? "Stop" : "Voice"}</span>
+            </button>
+            <button onClick={handlePrint} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-stone-600 text-white hover:bg-stone-700 rounded" data-testid="export-pdf-btn" title="Print PDF">
+              <Printer size={12} /> <span className="hidden lg:inline">Print</span>
             </button>
           </div>
         )}
@@ -608,7 +667,7 @@ const LedgerPage = () => {
                         Koi entry nahi hai — neeche se pehli entry add karein
                       </td>
                     </tr>
-                  ) : entries.map((e, i) => {
+                  ) : visibleEntries.map((e, i) => {
                     const bl = balLabel(e.balance);
                     const isSelected = selectedEntries.has(e.id);
                     const rowBg = isSelected ? "#c7d7f0" : (i % 2 === 0 ? "#FFE8CC" : "#FFDAB0");
@@ -657,6 +716,12 @@ const LedgerPage = () => {
                   })}
                 </tbody>
               </table>
+              {/* Virtual scroll sentinel */}
+              {visibleCount < entries.length && (
+                <div ref={sentinelRef} className="flex items-center justify-center py-3 text-xs text-stone-400">
+                  Showing {visibleCount}/{entries.length} entries — scroll to load more
+                </div>
+              )}
             </div>
             </>
           )}
