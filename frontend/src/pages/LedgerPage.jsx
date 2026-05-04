@@ -242,61 +242,118 @@ const LedgerPage = () => {
     setAiLoading(false);
   };
 
-  // Voice entry via Web Speech API
+  // Voice entry via Web Speech API — supports Hindi + English
   const handleVoiceEntry = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { toast.error("Voice not supported in this browser", { duration: 2000 }); return; }
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      toast.error("Voice entry needs Chrome/Edge browser with microphone", { duration: 2500 });
+      return;
+    }
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
       return;
     }
-    const rec = new SpeechRecognition();
-    rec.lang = "hi-IN"; // Hindi primary, fallback to English
+    const rec = new SpeechRec();
+    rec.continuous = false;
     rec.interimResults = false;
-    rec.maxAlternatives = 1;
+    rec.maxAlternatives = 3;
+    // Try Hindi first; browser will fallback to device language if not available
+    rec.lang = navigator.language?.startsWith("hi") ? "hi-IN" : "hi-IN";
     recognitionRef.current = rec;
-    rec.onstart = () => setIsListening(true);
+
+    rec.onstart = () => {
+      setIsListening(true);
+      toast.info("Bol do... (listening)", { duration: 4000, id: "voice-toast" });
+    };
+
     rec.onresult = (e) => {
-      const text = e.results[0][0].transcript;
-      setAiText(text);
+      // Pick highest confidence result
+      let best = "", bestConf = 0;
+      for (let i = 0; i < e.results[0].length; i++) {
+        const r = e.results[0][i];
+        if (r.confidence > bestConf) { bestConf = r.confidence; best = r.transcript; }
+      }
+      if (!best) return;
+      toast.dismiss("voice-toast");
+      setAiText(best);
       setAiOpen(true);
       setIsListening(false);
-      // Auto-parse after voice
-      setTimeout(() => {
-        if (text.trim()) {
-          const partyNames = parties.map(p => p.name);
-          api.post("/api/ai/parse-entry", { text, parties: partyNames }).then(res => {
-            const { party, amount, type, narration, confidence } = res.data;
-            if (confidence >= 0.4) {
-              const matched = parties.find(p => p.name.toLowerCase().includes(party?.toLowerCase()) || party?.toLowerCase().includes(p.name.toLowerCase()));
-              setFastEntry(prev => ({
-                ...prev, partyId: matched?.id || prev.partyId,
-                naam: type === "naam" ? String(amount || 0) : "",
-                jama: type === "jama" ? String(amount || 0) : "",
-                narration: narration || prev.narration,
-              }));
-              toast.success(`Voice: ${party} — ₹${amount} (${type === "naam" ? "नाम" : "जमा"})`, { duration: 2000 });
-              setAiOpen(false); setAiText("");
-            }
-          }).catch(() => {});
-        }
-      }, 300);
+
+      // Auto-trigger AI parse
+      const partyNames = parties.map(p => p.name);
+      api.post("/api/ai/parse-entry", { text: best, parties: partyNames })
+        .then(res => {
+          const { party, amount, type, narration, confidence } = res.data;
+          if (confidence >= 0.4) {
+            const matched = parties.find(p =>
+              p.name.toLowerCase().includes((party || "").toLowerCase()) ||
+              (party || "").toLowerCase().includes(p.name.toLowerCase())
+            );
+            setFastEntry(prev => ({
+              ...prev,
+              partyId: matched?.id || prev.partyId,
+              naam: type === "naam" ? String(amount || 0) : "",
+              jama: type === "jama" ? String(amount || 0) : "",
+              narration: narration || prev.narration,
+            }));
+            toast.success(`🎤 ${party} — ₹${amount} (${type === "naam" ? "नाम/Credit" : "जमा/Debit"})`, { duration: 2500 });
+            setAiOpen(false); setAiText("");
+          } else {
+            toast.warning("Clearly nahi suna — please retry or type", { duration: 2000 });
+          }
+        })
+        .catch(() => toast.error("AI parse failed", { duration: 1500 }));
     };
-    rec.onerror = () => { setIsListening(false); toast.error("Voice recognition failed", { duration: 1500 }); };
-    rec.onend = () => setIsListening(false);
-    rec.start();
+
+    rec.onerror = (e) => {
+      setIsListening(false);
+      toast.dismiss("voice-toast");
+      const msg = e.error === "not-allowed" ? "Microphone permission denied — enable in browser settings"
+                : e.error === "network" ? "Network error — check connection"
+                : e.error === "no-speech" ? "No speech detected — try again"
+                : "Voice recognition failed";
+      toast.error(msg, { duration: 2500 });
+    };
+
+    rec.onend = () => { setIsListening(false); toast.dismiss("voice-toast"); };
+
+    try { rec.start(); } catch (err) { toast.error("Could not start microphone", { duration: 2000 }); }
   };
-  const handleWhatsAppShare = () => {
+
+  // WhatsApp share — generates branded PDF then shares via Web Share API or downloads
+  const handleWhatsAppShare = async () => {
     if (!partyInfo || !selectedId) return;
-    const bal = balLabel(currentBalance);
-    const totalNaam = entries.reduce((s, e) => s + (e.naam || 0), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    const totalJama = entries.reduce((s, e) => s + (e.jama || 0), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    const last3 = [...entries].slice(-3).map(e =>
-      `• ${e.date} | ${e.naam > 0 ? `Credit ₹${e.naam}` : `Debit ₹${e.jama}`}${e.narration ? ` (${e.narration})` : ""}`
-    ).join("\n");
-    const msg = `*PoketBook — Ledger Statement*\n\n*Party:* ${toTitleCase(partyInfo.name)}\n*Balance:* ₹${bal.text}\n*Total Credit (नाम):* ₹${totalNaam}\n*Total Debit (जमा):* ₹${totalJama}\n*Entries:* ${entries.length}\n\n*Last Transactions:*\n${last3}\n\n_Powered by PoketBook — poketbook.in_`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    try {
+      toast.info("Generating PDF...", { id: "wa-pdf", duration: 10000 });
+      const res = await api.get(`/api/export/ledger/${selectedId}/pdf`, { responseType: "blob" });
+      toast.dismiss("wa-pdf");
+      const pdfBlob = res.data;
+      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
+      const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+      // Try native Web Share API (works on Android Chrome, iOS Safari)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `${toTitleCase(partyInfo.name)} — Statement`,
+          text: `PoketBook ledger statement for ${toTitleCase(partyInfo.name)}`,
+          files: [pdfFile],
+        });
+      } else {
+        // Fallback: download PDF then open WhatsApp with a text message
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+        const bal = balLabel(currentBalance);
+        const msg = `*PoketBook Statement*\n*Party:* ${toTitleCase(partyInfo.name)}\n*Balance:* ₹${bal.text}\n\nPDF downloaded — attach it on WhatsApp.\n\n_poketbook.in_`;
+        setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank"), 500);
+      }
+    } catch (err) {
+      toast.dismiss("wa-pdf");
+      if (err?.name !== "AbortError") toast.error("Could not share — PDF downloaded instead", { duration: 2000 });
+    }
   };
 
   const handleEditSave = async () => {

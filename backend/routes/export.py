@@ -10,7 +10,29 @@ from core import *
 
 router = APIRouter(prefix="/api")
 
-# ─── Export Helper Functions ──────────────────────────────────────────────────
+# ─── Standalone balance sheet helper (for PDF/Excel export) ──────────────────
+async def _fetch_balance_sheet(current_user: dict) -> dict:
+    """Standalone version of get_balance_sheet for use in export endpoints."""
+    parties = await db.parties.find({"user_id": current_user["_id"], "is_deleted": {"$ne": True}}).to_list(None)
+    lena_hai, dena_hai = [], []
+    for p in parties:
+        pid = str(p["_id"])
+        bal = await get_party_balance(pid)
+        entry = {"id": pid, "name": p["name"], "mobile": p.get("mobile", ""), "balance": bal}
+        if bal > 0:
+            dena_hai.append({**entry, "amount": abs(bal)})
+        elif bal < 0:
+            lena_hai.append({**entry, "amount": abs(bal)})
+    total_dena = sum(x["amount"] for x in dena_hai)
+    total_lena = sum(x["amount"] for x in lena_hai)
+    return {
+        "lena_hai": sorted(lena_hai, key=lambda x: x["amount"], reverse=True),
+        "dena_hai": sorted(dena_hai, key=lambda x: x["amount"], reverse=True),
+        "total_receivable": round(total_dena, 2),
+        "total_payable": round(total_lena, 2),
+        "net_balance": round(total_lena - total_dena, 2),
+    }
+
 
 def fmt_inr(amount: float) -> str:
     return f"Rs.{abs(float(amount)):,.2f}"
@@ -119,36 +141,59 @@ async def export_ledger_pdf(
     current_user: dict = Depends(get_current_user)
 ):
     from reportlab.lib.pagesizes import landscape, A4
-    from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_RIGHT
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, HRFlowable
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_RIGHT, TA_LEFT, TA_CENTER
+    from reportlab.lib.units import mm
 
     p = await db.parties.find_one({"_id": ObjectId(party_id), "user_id": current_user["_id"]})
     if not p:
         raise HTTPException(status_code=404, detail="Party not found")
 
     entries, cp_map = await _load_entries_with_cp_names(party_id, _build_date_query(start_date, end_date))
-    date_range = f"{start_date or 'All'} to {end_date or 'Today'}"
-    styles = getSampleStyleSheet()
-    brand_style = ParagraphStyle("brand", fontSize=7, textColor=__import__("reportlab.lib.colors", fromlist=["colors"]).HexColor("#6B7280"), alignment=TA_RIGHT)
+    date_range = f"{start_date or 'All entries'} to {end_date or 'Today'}"
+
+    NAVY  = colors.HexColor("#0A1628");  GREEN = colors.HexColor("#22C55E")
+    ORANGE = colors.HexColor("#FFB347"); GREY  = colors.HexColor("#9CA3AF")
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15*mm, rightMargin=15*mm, topMargin=10*mm, bottomMargin=12*mm)
+
+    # Branded header
+    LOGO_PATH = "/app/frontend/public/logo.png"
+    logo_img = RLImage(LOGO_PATH, width=26, height=29) if os.path.exists(LOGO_PATH) else Paragraph("", ParagraphStyle("x"))
+    hdr_tbl = Table([[
+        logo_img,
+        [Paragraph("<b>PoketBook</b>", ParagraphStyle("h1", fontSize=13, fontName="Helvetica-Bold", textColor=GREEN)),
+         Paragraph("Digital Udhar Khaata", ParagraphStyle("h2", fontSize=8, textColor=colors.HexColor("#94A3B8")))],
+        [Paragraph(f"Party Statement: <b>{p['name'].title()}</b>", ParagraphStyle("ht", fontSize=14, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_CENTER)),
+         Paragraph(f"Period: {date_range}", ParagraphStyle("hp", fontSize=8, textColor=colors.HexColor("#CBD5E1"), alignment=TA_CENTER))],
+        [Paragraph("<b>Flutter Fox</b>", ParagraphStyle("ff", fontSize=9, fontName="Helvetica-Bold", textColor=ORANGE, alignment=TA_RIGHT)),
+         Paragraph("flutterfox.in", ParagraphStyle("ffu", fontSize=7, textColor=GREY, alignment=TA_RIGHT))],
+    ]], colWidths=[18*mm, 45*mm, 130*mm, 40*mm])
+    hdr_tbl.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(-1,-1),NAVY), ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("TOPPADDING",(0,0),(-1,-1),8), ("BOTTOMPADDING",(0,0),(-1,-1),8),
+        ("LEFTPADDING",(0,0),(0,0),8), ("RIGHTPADDING",(3,0),(3,0),8),
+    ]))
+
     table_data = _build_ledger_pdf_table_data(entries, cp_map)
     t = Table(table_data, colWidths=[60, 80, 80, 80, 160, 110, 50])
     t.setStyle(_build_ledger_pdf_table_style())
+
+    foot_style = ParagraphStyle("foot", fontSize=7, textColor=GREY, alignment=TA_CENTER)
     elements = [
-        Paragraph(f"Statement: {p['name']}", styles["Title"]),
-        Paragraph(f"Period: {date_range}   |   Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles["Normal"]),
-        Spacer(1, 12),
-        t,
-        Spacer(1, 8),
-        Paragraph("PoketBook — Digital Udhar Khaata | Powered by Flutter Fox (flutterfox.in)", brand_style),
+        hdr_tbl, Spacer(1, 8), t, Spacer(1, 8),
+        HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#E5E7EB")),
+        Spacer(1, 3),
+        Paragraph(f"PoketBook — Digital Udhar Khaata | Generated: {datetime.now().strftime('%d %b %Y %H:%M')} IST | poketbook.in", foot_style),
+        Paragraph("Powered by Flutter Fox · flutterfox.in · New Delhi, India", foot_style),
     ]
     doc.build(elements)
     buf.seek(0)
     return Response(content=buf.read(), media_type="application/pdf",
-                    headers={"Content-Disposition": f"attachment; filename=Statement_{p['name']}.pdf"})
+                    headers={"Content-Disposition": f"attachment; filename=PoketBook_{p['name'].title()}_Statement.pdf"})
 
 @router.get("/export/ledger/{party_id}/excel")
 async def export_ledger_excel(
@@ -221,125 +266,119 @@ async def export_ledger_excel(
 
 @router.get("/export/balance-sheet/pdf")
 async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
-    from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, HRFlowable
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 
-    data = await get_balance_sheet(current_user)
+    data = await _fetch_balance_sheet(current_user)
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm, topMargin=15*mm, bottomMargin=15*mm)
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=10*mm, bottomMargin=12*mm)
 
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("title", fontSize=16, fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=4)
-    sub_style   = ParagraphStyle("sub",   fontSize=9,  fontName="Helvetica",      alignment=TA_CENTER, textColor=colors.HexColor("#6B7280"), spaceAfter=12)
+    BLUE   = colors.HexColor("#1E40AF");  BLUE_L = colors.HexColor("#DBEAFE");  BLUE_T = colors.HexColor("#1D4ED8")
+    RED    = colors.HexColor("#991B1B");  RED_L  = colors.HexColor("#FEE2E2");  RED_T  = colors.HexColor("#B91C1C")
+    NAVY   = colors.HexColor("#0A1628");  GREEN  = colors.HexColor("#22C55E")
+    GREY   = colors.HexColor("#F9FAFB");  BORDER = colors.HexColor("#E5E7EB")
 
-    BLUE   = colors.HexColor("#1E40AF")
-    BLUE_L = colors.HexColor("#DBEAFE")
-    BLUE_T = colors.HexColor("#1D4ED8")
-    RED    = colors.HexColor("#991B1B")
-    RED_L  = colors.HexColor("#FEE2E2")
-    RED_T  = colors.HexColor("#B91C1C")
-    GREY   = colors.HexColor("#F9FAFB")
-    BORDER = colors.HexColor("#E5E7EB")
+    dena = data["dena_hai"];  lena = data["lena_hai"];  max_rows = max(len(dena), len(lena), 1)
+    net  = data.get("net_balance", 0)
 
-    dena = data["dena_hai"]   # Blue column — Left
-    lena = data["lena_hai"]   # Red column  — Right
-    max_rows = max(len(dena), len(lena), 1)
+    # ── Header table: logo + title + date (matches web app dark header) ──────
+    LOGO_PATH = "/app/frontend/public/logo.png"
+    logo_img = RLImage(LOGO_PATH, width=28, height=31) if os.path.exists(LOGO_PATH) else None
+    logo_cell = logo_img if logo_img else Paragraph("", ParagraphStyle("x"))
+    hdr_title  = Paragraph("<b>PoketBook</b>", ParagraphStyle("ht", fontSize=14, fontName="Helvetica-Bold", textColor=GREEN))
+    hdr_sub    = Paragraph("Digital Udhar Khaata", ParagraphStyle("hs", fontSize=8, textColor=colors.HexColor("#94A3B8")))
+    hdr_sheet  = Paragraph("Balance Sheet", ParagraphStyle("hsh", fontSize=16, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_CENTER))
+    hdr_date   = Paragraph(datetime.now(timezone.utc).strftime("%d %B %Y"), ParagraphStyle("hd", fontSize=9, textColor=colors.HexColor("#CBD5E1"), alignment=TA_CENTER))
+    ff_brand   = Paragraph("Powered by <b>Flutter Fox</b>", ParagraphStyle("ff", fontSize=8, textColor=colors.HexColor("#FFB347"), alignment=TA_RIGHT))
+    ff_url     = Paragraph("flutterfox.in", ParagraphStyle("ffu", fontSize=7, textColor=colors.HexColor("#94A3B8"), alignment=TA_RIGHT))
 
-    # Column widths: [name, amount,  gap, name, amount]
-    COL = [90*mm, 35*mm, 4*mm, 90*mm, 35*mm]
-
-    # Header row
-    hdr_name_style = ParagraphStyle("hdr", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_LEFT)
-    hdr_amt_style  = ParagraphStyle("hdr_r", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_RIGHT)
-
-    def _row(dena_p, dena_a, lena_p, lena_a, is_total=False):
-        fn = "Helvetica-Bold" if is_total else "Helvetica"
-        dc = BLUE_T if not is_total else BLUE
-        rc = RED_T  if not is_total else RED
-        return [
-            Paragraph(f'<font name="{fn}" color="{dc.hexval()}">{dena_p}</font>', ParagraphStyle("c", fontSize=8, fontName=fn)),
-            Paragraph(f'<font name="{fn}" color="{dc.hexval()}">{dena_a}</font>', ParagraphStyle("r", fontSize=8, fontName=fn, alignment=TA_RIGHT)),
-            "",
-            Paragraph(f'<font name="{fn}" color="{rc.hexval()}">{lena_p}</font>', ParagraphStyle("c2", fontSize=8, fontName=fn)),
-            Paragraph(f'<font name="{fn}" color="{rc.hexval()}">{lena_a}</font>', ParagraphStyle("r2", fontSize=8, fontName=fn, alignment=TA_RIGHT)),
-        ]
-
-    table_data = [[
-        Paragraph(f"DENA HAI / देना है  [{len(dena)} parties]", hdr_name_style),
-        Paragraph("Amount (₹)", hdr_amt_style),
-        "",
-        Paragraph(f"LENA HAI / लेना है  [{len(lena)} parties]", hdr_name_style),
-        Paragraph("Amount (₹)", hdr_amt_style),
-    ]]
-
-    for i in range(max_rows):
-        dp = dena[i] if i < len(dena) else {}
-        lp = lena[i] if i < len(lena) else {}
-        table_data.append(_row(
-            dp.get("name", ""), fmt_inr(dp["amount"]) if dp.get("name") else "",
-            lp.get("name", ""), fmt_inr(lp["amount"]) if lp.get("name") else "",
-        ))
-
-    # Totals row
-    table_data.append(_row(
-        "TOTAL PAYABLE", fmt_inr(data["total_payable"]),
-        "TOTAL RECEIVABLE", fmt_inr(data["total_receivable"]),
-        is_total=True,
-    ))
-
-    t = Table(table_data, colWidths=COL, repeatRows=1)
-    row_styles = []
-    for i in range(1, max_rows + 1):
-        bg = colors.white if i % 2 == 1 else GREY
-        row_styles.append(("BACKGROUND", (0, i), (1, i), bg))
-        row_styles.append(("BACKGROUND", (3, i), (4, i), bg))
-
-    t.setStyle(TableStyle([
-        # Header
-        ("BACKGROUND",   (0, 0), (1, 0), BLUE),
-        ("BACKGROUND",   (3, 0), (4, 0), RED),
-        ("BACKGROUND",   (2, 0), (2, -1), colors.white),   # gap col
-        ("ROWBACKGROUNDS", (2, 0), (2, -1), [colors.white]),
-        # Borders
-        ("BOX",          (0, 0), (1, -1), 0.5, BORDER),
-        ("BOX",          (3, 0), (4, -1), 0.5, BORDER),
-        ("INNERGRID",    (0, 0), (1, -1), 0.3, BORDER),
-        ("INNERGRID",    (3, 0), (4, -1), 0.3, BORDER),
-        ("LINEABOVE",    (0, -1), (1, -1), 1.5, BLUE),
-        ("LINEABOVE",    (3, -1), (4, -1), 1.5, RED),
-        # Total row backgrounds
-        ("BACKGROUND",   (0, -1), (1, -1), BLUE_L),
-        ("BACKGROUND",   (3, -1), (4, -1), RED_L),
-        # Padding
-        ("TOPPADDING",    (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        *row_styles,
+    hdr_table = Table([
+        [[logo_cell, hdr_title, hdr_sub],  [hdr_sheet, hdr_date],  [ff_brand, ff_url]]
+    ], colWidths=[50*mm, 80*mm, 50*mm])
+    hdr_table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), NAVY),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("ALIGN", (1,0), (1,0), "CENTER"), ("ALIGN", (2,0), (2,0), "RIGHT"),
+        ("TOPPADDING", (0,0), (-1,-1), 8), ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+        ("LEFTPADDING", (0,0), (0,0), 8), ("RIGHTPADDING", (2,0), (2,0), 8),
+        ("INNERGRID", (0,0), (-1,-1), 0, NAVY),
     ]))
 
-    # Net balance row
-    net = data.get("net_balance", 0)
-    net_label = "Net Payable (Dena > Lena)" if net > 0 else ("Net Receivable (Lena > Dena)" if net < 0 else "Balanced")
-    net_color  = "#1E40AF" if net > 0 else ("#991B1B" if net < 0 else "#374151")
-    net_style  = ParagraphStyle("net", fontSize=9, fontName="Helvetica-Bold",
-                                textColor=colors.HexColor(net_color), alignment=TA_RIGHT)
+    # ── Summary strip ────────────────────────────────────────────────────────
+    net_color = "#1E40AF" if net > 0 else ("#991B1B" if net < 0 else "#374151")
+    net_label = "Net Payable" if net > 0 else ("Net Receivable" if net < 0 else "Balanced")
+    summary = Table([[
+        Paragraph(f"<b>Dena Hai (Payable):</b> ₹{fmt_inr(data['total_payable'])} [{len(dena)} parties]",
+                  ParagraphStyle("s1", fontSize=8, textColor=BLUE_T)),
+        Paragraph(f"<b>Lena Hai (Receivable):</b> ₹{fmt_inr(data['total_receivable'])} [{len(lena)} parties]",
+                  ParagraphStyle("s2", fontSize=8, textColor=RED_T, alignment=TA_CENTER)),
+        Paragraph(f"<b>{net_label}:</b> ₹{fmt_inr(abs(net))}",
+                  ParagraphStyle("s3", fontSize=8, fontName="Helvetica-Bold",
+                                 textColor=colors.HexColor(net_color), alignment=TA_RIGHT)),
+    ]], colWidths=[60*mm, 70*mm, 50*mm])
+    summary.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
+        ("BOX", (0,0), (-1,-1), 0.5, BORDER),
+        ("TOPPADDING", (0,0), (-1,-1), 5), ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ]))
 
-    brand_style = ParagraphStyle("brand_bs", fontSize=7, fontName="Helvetica",
-                                  textColor=colors.HexColor("#9CA3AF"), alignment=TA_RIGHT)
+    # ── Two-column ledger table ───────────────────────────────────────────────
+    COL = [72*mm, 28*mm, 4*mm, 72*mm, 28*mm]
+    hdr_s = ParagraphStyle("hdr", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_LEFT)
+    hdr_r = ParagraphStyle("hdr_r", fontSize=9, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_RIGHT)
+
+    def _row(dp, da, lp, la, is_total=False):
+        fn = "Helvetica-Bold" if is_total else "Helvetica"
+        return [
+            Paragraph(f'<font name="{fn}" color="{BLUE_T.hexval()}">{dp}</font>', ParagraphStyle("c",  fontSize=8, fontName=fn)),
+            Paragraph(f'<font name="{fn}" color="{BLUE_T.hexval()}">{da}</font>', ParagraphStyle("r",  fontSize=8, fontName=fn, alignment=TA_RIGHT)),
+            "", 
+            Paragraph(f'<font name="{fn}" color="{RED_T.hexval()}">{lp}</font>',  ParagraphStyle("c2", fontSize=8, fontName=fn)),
+            Paragraph(f'<font name="{fn}" color="{RED_T.hexval()}">{la}</font>',  ParagraphStyle("r2", fontSize=8, fontName=fn, alignment=TA_RIGHT)),
+        ]
+
+    tdata = [[Paragraph(f"DENA HAI / देना है  [{len(dena)} parties]", hdr_s), Paragraph("Amount (₹)", hdr_r),
+              "", Paragraph(f"LENA HAI / लेना है  [{len(lena)} parties]", hdr_s), Paragraph("Amount (₹)", hdr_r)]]
+
+    for i in range(max_rows):
+        dp = dena[i] if i < len(dena) else {}; lp = lena[i] if i < len(lena) else {}
+        tdata.append(_row(dp.get("name",""), fmt_inr(dp["amount"]) if dp.get("name") else "",
+                          lp.get("name",""), fmt_inr(lp["amount"]) if lp.get("name") else ""))
+    tdata.append(_row("TOTAL PAYABLE", fmt_inr(data["total_payable"]),
+                      "TOTAL RECEIVABLE", fmt_inr(data["total_receivable"]), is_total=True))
+
+    t = Table(tdata, colWidths=COL, repeatRows=1)
+    row_styles = [s for i in range(1, max_rows+1) for s in [
+        ("BACKGROUND",(0,i),(1,i), colors.white if i%2==1 else GREY),
+        ("BACKGROUND",(3,i),(4,i), colors.white if i%2==1 else GREY),
+    ]]
+    t.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(1,0),BLUE), ("BACKGROUND",(3,0),(4,0),RED),
+        ("BACKGROUND",(2,0),(2,-1),colors.white),
+        ("BOX",(0,0),(1,-1),0.5,BORDER), ("BOX",(3,0),(4,-1),0.5,BORDER),
+        ("INNERGRID",(0,0),(1,-1),0.3,BORDER), ("INNERGRID",(3,0),(4,-1),0.3,BORDER),
+        ("LINEABOVE",(0,-1),(1,-1),1.5,BLUE), ("LINEABOVE",(3,-1),(4,-1),1.5,RED),
+        ("BACKGROUND",(0,-1),(1,-1),BLUE_L), ("BACKGROUND",(3,-1),(4,-1),RED_L),
+        ("TOPPADDING",(0,0),(-1,-1),5), ("BOTTOMPADDING",(0,0),(-1,-1),5),
+        ("LEFTPADDING",(0,0),(-1,-1),6), ("RIGHTPADDING",(0,0),(-1,-1),6),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"), *row_styles,
+    ]))
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    footer_style = ParagraphStyle("foot", fontSize=7, textColor=colors.HexColor("#9CA3AF"), alignment=TA_CENTER)
+
     elements = [
-        Paragraph("Balance Sheet", title_style),
-        Paragraph(f"Generated: {datetime.now(timezone.utc).strftime('%d %B %Y')}", sub_style),
-        t,
-        Spacer(1, 6),
-        Paragraph(f"Net Balance: ₹{fmt_inr(abs(net))} — {net_label}", net_style),
+        hdr_table, Spacer(1, 6), summary, Spacer(1, 8), t, Spacer(1, 8),
+        HRFlowable(width="100%", thickness=0.5, color=BORDER),
         Spacer(1, 4),
-        Paragraph("PoketBook — Digital Udhar Khaata | Powered by Flutter Fox (flutterfox.in)", brand_style),
+        Paragraph("PoketBook — Digital Udhar Khaata for Indian Businesses | poketbook.in", footer_style),
+        Paragraph("Powered by Flutter Fox · flutterfox.in · New Delhi, India", footer_style),
     ]
     doc.build(elements)
     buf.seek(0)
@@ -350,7 +389,7 @@ async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
 async def export_bs_excel(current_user: dict = Depends(get_current_user)):
     import openpyxl
     from openpyxl.styles import Font
-    data = await get_balance_sheet(current_user)
+    data = await _fetch_balance_sheet(current_user)
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Balance Sheet"
