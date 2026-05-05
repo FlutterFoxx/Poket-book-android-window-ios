@@ -246,7 +246,8 @@ const LedgerPage = () => {
   const handleVoiceEntry = () => {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
-      toast.error("Voice entry needs Chrome/Edge browser with microphone", { duration: 2500 });
+      toast.error("Voice needs Chrome browser. Use AI button to type.", { duration: 3000 });
+      setAiOpen(true);
       return;
     }
     if (isListening) {
@@ -254,106 +255,100 @@ const LedgerPage = () => {
       setIsListening(false);
       return;
     }
+    // Request mic permission first — triggers permission dialog on Android/iOS
+    if (navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => _startSpeech(SpeechRec))
+        .catch(() => toast.error("Microphone blocked — allow mic in browser settings", { duration: 3000 }));
+    } else {
+      _startSpeech(SpeechRec);
+    }
+  };
+
+  const _startSpeech = (SpeechRec) => {
     const rec = new SpeechRec();
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.maxAlternatives = 3;
-    // Try Hindi first; browser will fallback to device language if not available
-    rec.lang = navigator.language?.startsWith("hi") ? "hi-IN" : "hi-IN";
+    rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 3; rec.lang = "hi-IN";
     recognitionRef.current = rec;
-
-    rec.onstart = () => {
-      setIsListening(true);
-      toast.info("Bol do... (listening)", { duration: 4000, id: "voice-toast" });
-    };
-
+    let vtid;
+    rec.onstart = () => { setIsListening(true); vtid = toast.loading("Listening... Bol do!"); };
     rec.onresult = (e) => {
-      // Pick highest confidence result
+      toast.dismiss(vtid); setIsListening(false);
       let best = "", bestConf = 0;
       for (let i = 0; i < e.results[0].length; i++) {
-        const r = e.results[0][i];
-        if (r.confidence > bestConf) { bestConf = r.confidence; best = r.transcript; }
+        const r = e.results[0][i]; if (r.confidence >= bestConf) { bestConf = r.confidence; best = r.transcript; }
       }
       if (!best) return;
-      toast.dismiss("voice-toast");
-      setAiText(best);
-      setAiOpen(true);
-      setIsListening(false);
-
-      // Auto-trigger AI parse
-      const partyNames = parties.map(p => p.name);
-      api.post("/api/ai/parse-entry", { text: best, parties: partyNames })
+      setAiText(best); setAiOpen(true);
+      api.post("/api/ai/parse-entry", { text: best, parties: parties.map(p => p.name) })
         .then(res => {
           const { party, amount, type, narration, confidence } = res.data;
           if (confidence >= 0.4) {
-            const matched = parties.find(p =>
-              p.name.toLowerCase().includes((party || "").toLowerCase()) ||
-              (party || "").toLowerCase().includes(p.name.toLowerCase())
-            );
-            setFastEntry(prev => ({
-              ...prev,
-              partyId: matched?.id || prev.partyId,
-              naam: type === "naam" ? String(amount || 0) : "",
-              jama: type === "jama" ? String(amount || 0) : "",
-              narration: narration || prev.narration,
-            }));
-            toast.success(`🎤 ${party} — ₹${amount} (${type === "naam" ? "नाम/Credit" : "जमा/Debit"})`, { duration: 2500 });
+            const matched = parties.find(p => p.name.toLowerCase().includes((party||"").toLowerCase()) || (party||"").toLowerCase().includes(p.name.toLowerCase()));
+            setFastEntry(prev => ({ ...prev, partyId: matched?.id || prev.partyId, naam: type==="naam"?String(amount||0):"", jama: type==="jama"?String(amount||0):"", narration: narration||prev.narration }));
+            toast.success(`${party} — Rs.${amount} (${type==="naam"?"Credit/नाम":"Debit/जमा"})`, { duration: 2500 });
             setAiOpen(false); setAiText("");
           } else {
-            toast.warning("Clearly nahi suna — please retry or type", { duration: 2000 });
+            toast.warning("Samjha nahi — please retry or type", { duration: 2500 });
           }
         })
-        .catch(() => toast.error("AI parse failed", { duration: 1500 }));
+        .catch(() => toast.error("AI failed — check connection", { duration: 2000 }));
     };
-
     rec.onerror = (e) => {
-      setIsListening(false);
-      toast.dismiss("voice-toast");
-      const msg = e.error === "not-allowed" ? "Microphone permission denied — enable in browser settings"
-                : e.error === "network" ? "Network error — check connection"
-                : e.error === "no-speech" ? "No speech detected — try again"
-                : "Voice recognition failed";
-      toast.error(msg, { duration: 2500 });
+      toast.dismiss(vtid); setIsListening(false);
+      toast.error(e.error==="not-allowed"?"Mic blocked — enable in settings":e.error==="no-speech"?"No speech — try again":`Voice error: ${e.error}`, { duration: 3000 });
     };
-
-    rec.onend = () => { setIsListening(false); toast.dismiss("voice-toast"); };
-
-    try { rec.start(); } catch (err) { toast.error("Could not start microphone", { duration: 2000 }); }
+    rec.onend = () => { setIsListening(false); toast.dismiss(vtid); };
+    try { rec.start(); } catch { toast.error("Cannot start mic", { duration: 2000 }); }
   };
 
-  // WhatsApp share — generates branded PDF then shares via Web Share API or downloads
+  // WhatsApp share — generates branded PDF, shares via Web Share API or downloads + opens WhatsApp
+  const [sharingPdf, setSharingPdf] = useState(false);
   const handleWhatsAppShare = async () => {
-    if (!partyInfo || !selectedId) return;
+    if (!partyInfo || !selectedId || sharingPdf) return;
+    setSharingPdf(true);
+    const toastId = toast.loading("Generating PDF...");
     try {
-      toast.info("Generating PDF...", { id: "wa-pdf", duration: 10000 });
-      const res = await api.get(`/api/export/ledger/${selectedId}/pdf`, { responseType: "blob" });
-      toast.dismiss("wa-pdf");
-      const pdfBlob = res.data;
+      // Use fetch directly (avoids axios responseType:blob interceptor issues)
+      const BACKEND = process.env.REACT_APP_BACKEND_URL || "";
+      const token = sessionStorage.getItem("access_token") || localStorage.getItem("access_token") || "";
+      const resp = await fetch(`${BACKEND}/api/export/ledger/${selectedId}/pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) throw new Error(`PDF generation failed: ${resp.status}`);
+      const pdfBlob = await resp.blob();
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
-      const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+      toast.dismiss(toastId);
 
-      // Try native Web Share API (works on Android Chrome, iOS Safari)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          title: `${toTitleCase(partyInfo.name)} — Statement`,
-          text: `PoketBook ledger statement for ${toTitleCase(partyInfo.name)}`,
-          files: [pdfFile],
-        });
-      } else {
-        // Fallback: download PDF then open WhatsApp with a text message
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement("a");
-        a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); URL.revokeObjectURL(url);
-        const bal = balLabel(currentBalance);
-        const msg = `*PoketBook Statement*\n*Party:* ${toTitleCase(partyInfo.name)}\n*Balance:* ₹${bal.text}\n\nPDF downloaded — attach it on WhatsApp.\n\n_poketbook.in_`;
-        setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank"), 500);
+      // Try Web Share API with file (Android Chrome, iOS Safari ≥15)
+      try {
+        const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+        if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
+          await navigator.share({ title: fileName, files: [pdfFile] });
+          setSharingPdf(false);
+          return;
+        }
+      } catch (shareErr) {
+        if (shareErr?.name === "AbortError") { setSharingPdf(false); return; }
+        // Share with file failed — fall through to download
       }
+
+      // Fallback: download the PDF
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+
+      // Build WhatsApp text summary (open directly — user just clicked so popup allowed)
+      const bal = balLabel(currentBalance);
+      const msg = `*PoketBook Statement — ${toTitleCase(partyInfo.name)}*\n\nBalance: *₹${bal.text}*\nEntries: ${entries.length}\n\nPDF downloaded. Open WhatsApp → Attach → send the PDF.\n\n_poketbook.in_`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+      toast.success("PDF downloaded! Attach it in WhatsApp", { duration: 3000 });
     } catch (err) {
-      toast.dismiss("wa-pdf");
-      if (err?.name !== "AbortError") toast.error("Could not share — PDF downloaded instead", { duration: 2000 });
+      toast.dismiss(toastId);
+      if (err?.name !== "AbortError") toast.error(err.message || "PDF generation failed", { duration: 2500 });
     }
+    setSharingPdf(false);
   };
 
   const handleEditSave = async () => {
@@ -558,8 +553,8 @@ const LedgerPage = () => {
                 <Lock size={12} /> <span className="hidden lg:inline">Tally</span> ({unlocked})
               </button>
             )}
-            <button onClick={handleWhatsAppShare} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share on WhatsApp">
-              <MessageCircle size={13} /> <span className="hidden md:inline">Share</span>
+            <button onClick={handleWhatsAppShare} disabled={sharingPdf} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share PDF on WhatsApp">
+              <MessageCircle size={13} className={sharingPdf ? "animate-spin" : ""} /> <span className="hidden md:inline">{sharingPdf ? "..." : "Share"}</span>
             </button>
             <button onClick={() => setAiOpen(o => !o)} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: aiOpen ? "#7C3AED" : "#8B5CF6" }} data-testid="ai-entry-btn" title="AI Entry">
               <Sparkles size={13} /> <span className="hidden md:inline">AI</span>
