@@ -67,6 +67,7 @@ const LandingPage = () => {
             ))}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Link to="/privacy" className="text-xs text-gray-400 hover:text-white px-2 py-1.5 hidden lg:block">Privacy</Link>
             <Link to="/login" className="text-sm text-gray-300 hover:text-white px-3 py-1.5 hidden sm:block">Login</Link>
             <button onClick={() => scrollTo("pricing")}
               className="bg-green-500 hover:bg-green-400 text-black font-bold text-sm px-3 sm:px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
@@ -473,6 +474,75 @@ const LandingPage = () => {
                 <Mail size={14} /> Send Message
               </button>
             </form>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Google Data Usage / Transparency Section ─────────── */}
+      <section id="google-data" className="py-12 sm:py-16 px-4" style={{ background: "#0A0D18" }}>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 text-sm text-blue-400 mb-4">
+              <Shield size={14} /> Google API & Data Usage Transparency
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-3" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+              How PoketBook Uses Your Google Account
+            </h2>
+            <p className="text-gray-400 text-sm sm:text-base max-w-2xl mx-auto">
+              PoketBook requests access to your Google account <strong className="text-white">only</strong> for backup purposes. Here's exactly what we access and why:
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-4 mb-8">
+            <div className="rounded-xl p-5 border border-white/10" style={{ background: "#111827" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: "#0F9D58" }}>
+                <Database size={18} color="#fff" />
+              </div>
+              <h3 className="font-bold text-white text-sm mb-2">Google Sheets Access</h3>
+              <p className="text-gray-400 text-xs leading-relaxed">
+                <strong className="text-green-400">What:</strong> Read and write to spreadsheets in your Drive.<br />
+                <strong className="text-green-400">Why:</strong> To sync your ledger data (parties + entries) to a dedicated Google Sheet for backup.<br />
+                <strong className="text-green-400">Scope:</strong> Only the sheet created by PoketBook.
+              </p>
+            </div>
+            <div className="rounded-xl p-5 border border-white/10" style={{ background: "#111827" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: "#EA4335" }}>
+                <Mail size={18} color="#fff" />
+              </div>
+              <h3 className="font-bold text-white text-sm mb-2">Gmail Send Access</h3>
+              <p className="text-gray-400 text-xs leading-relaxed">
+                <strong className="text-red-400">What:</strong> Send emails on your behalf.<br />
+                <strong className="text-red-400">Why:</strong> To deliver scheduled backup reports of your ledger data to your email address.<br />
+                <strong className="text-red-400">Scope:</strong> Only backup delivery emails.
+              </p>
+            </div>
+            <div className="rounded-xl p-5 border border-white/10" style={{ background: "#111827" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: "#4285F4" }}>
+                <Users size={18} color="#fff" />
+              </div>
+              <h3 className="font-bold text-white text-sm mb-2">Basic Profile</h3>
+              <p className="text-gray-400 text-xs leading-relaxed">
+                <strong className="text-blue-400">What:</strong> Your name and email address.<br />
+                <strong className="text-blue-400">Why:</strong> To identify your Google account for the backup connection.<br />
+                <strong className="text-blue-400">Scope:</strong> Read-only profile info.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl p-5 border border-green-500/20 text-sm text-center" style={{ background: "rgba(15,157,88,0.05)" }}>
+            <p className="text-gray-300 mb-1">
+              <strong className="text-green-400">We NEVER sell, share, or misuse your data.</strong> Google access is optional — PoketBook works fully without connecting Google.
+            </p>
+            <p className="text-gray-500 text-xs">
+              You can revoke access anytime: <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google Account → Security → Third-party apps</a>
+            </p>
+            <div className="flex items-center justify-center gap-4 mt-3 flex-wrap">
+              <Link to="/privacy" className="text-blue-400 hover:text-blue-300 text-xs underline">Privacy Policy</Link>
+              <span className="text-gray-600">|</span>
+              <Link to="/terms" className="text-blue-400 hover:text-blue-300 text-xs underline">Terms & Conditions</Link>
+              <span className="text-gray-600">|</span>
+              <a href="mailto:Solution@poketbook.in" className="text-blue-400 hover:text-blue-300 text-xs underline">Contact Us</a>
+            </div>
           </div>
         </div>
       </section>

@@ -1,9 +1,15 @@
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import { ArrowLeft, Shield } from "lucide-react";
 
 const LOGO = "/logo.png";
 
 export default function PrivacyPolicy() {
+  useEffect(() => {
+    document.title = "Privacy Policy — PoketBook | poketbook.in";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", "PoketBook Privacy Policy — How we collect, use, and protect your data. Google Sheets & Gmail backup permissions explained. Contact: Solution@poketbook.in");
+  }, []);
   return (
     <div style={{ minHeight: "100vh", background: "#050A14", color: "#e2e8f0", fontFamily: "'Work Sans', sans-serif" }}>
       {/* Header */}

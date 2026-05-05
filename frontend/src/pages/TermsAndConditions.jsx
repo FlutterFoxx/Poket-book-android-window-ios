@@ -1,9 +1,13 @@
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import { ArrowLeft, FileText } from "lucide-react";
 
 const LOGO = "/logo.png";
 
 export default function TermsAndConditions() {
+  useEffect(() => {
+    document.title = "Terms & Conditions — PoketBook | poketbook.in";
+  }, []);
   return (
     <div style={{ minHeight: "100vh", background: "#050A14", color: "#e2e8f0", fontFamily: "'Work Sans', sans-serif" }}>
       {/* Header */}
