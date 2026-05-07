@@ -38,12 +38,10 @@ def fmt_inr(amount: float) -> str:
     return f"Rs.{abs(float(amount)):,.2f}"
 
 def _format_balance_text(bal: float) -> str:
-    """Format a balance value as human-readable Lena/Dena text."""
-    if bal > 0:
-        return f"{fmt_inr(bal)} Lena Hai"
-    if bal < 0:
-        return f"{fmt_inr(bal)} Dena Hai"
-    return "Settled"
+    """Format balance for PDF — just the amount, no Dena/Lena label."""
+    if bal == 0:
+        return "Settled"
+    return fmt_inr(abs(bal))   # just the number, clean for sharing
 
 def _build_date_query(start_date: Optional[str], end_date: Optional[str]) -> dict:
     """Build a MongoDB date range sub-query."""
@@ -121,7 +119,7 @@ def _build_excel_ledger(party_name: str, date_range: str, entries: list, cp_map:
         cell.fill = PatternFill("solid", fgColor="8B4513")
     for e in entries:
         bal = e.get("balance", 0)
-        bal_type = "Lena Hai" if bal > 0 else ("Dena Hai" if bal < 0 else "Settled")
+        bal_type = "Settled" if bal == 0 else f"Rs.{abs(bal):,.2f}"
         cp_name = cp_map.get(e.get("counterparty_id", ""), "")
         ws.append([
             e.get("date", ""), cp_name,
@@ -251,7 +249,7 @@ async def export_ledger_excel(
         cell.fill = PatternFill("solid", fgColor="8B4513")
     for e in entries:
         bal = e.get("balance", 0)
-        bal_type = "Lena Hai" if bal > 0 else ("Dena Hai" if bal < 0 else "Settled")
+        bal_type = "Settled" if bal == 0 else f"Rs.{abs(bal):,.2f}"
         cp_name = cp_map.get(e.get("counterparty_id", ""), "")
         ws.append([e.get("date", ""), cp_name,
                    e.get("naam", 0) or "", e.get("jama", 0) or "",

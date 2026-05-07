@@ -34,6 +34,7 @@ const LedgerPage = () => {
   const [currentBalance, setCurrentBalance] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showFullAccount, setShowFullAccount] = useState(true);
+  const [showHeader, setShowHeader] = useState(true); // mobile: hide/show upper bars
   const [fastEntry, setFastEntry] = useState(EMPTY_FAST);
   const [saving, setSaving] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
@@ -301,54 +302,55 @@ const LedgerPage = () => {
     try { rec.start(); } catch { toast.error("Cannot start mic", { duration: 2000 }); }
   };
 
-  // WhatsApp share — generates branded PDF, shares via Web Share API or downloads + opens WhatsApp
+  // WhatsApp share — generates branded PDF, tries Web Share API, then shows direct WA button
   const [sharingPdf, setSharingPdf] = useState(false);
+  const [waPdfUrl, setWaPdfUrl] = useState(null); // blob URL for WA share modal
+  const [waFileName, setWaFileName] = useState("");
   const handleWhatsAppShare = async () => {
     if (!partyInfo || !selectedId || sharingPdf) return;
     setSharingPdf(true);
     const toastId = toast.loading("Generating PDF...");
     try {
-      // Use fetch directly (avoids axios responseType:blob interceptor issues)
       const BACKEND = process.env.REACT_APP_BACKEND_URL || "";
       const token = sessionStorage.getItem("access_token") || localStorage.getItem("access_token") || "";
       const resp = await fetch(`${BACKEND}/api/export/ledger/${selectedId}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!resp.ok) throw new Error(`PDF generation failed: ${resp.status}`);
+      if (!resp.ok) throw new Error(`PDF failed: ${resp.status}`);
       const pdfBlob = await resp.blob();
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
       toast.dismiss(toastId);
 
-      // Try Web Share API with file (Android Chrome, iOS Safari ≥15)
+      // 1. Try native Web Share with file (Android Chrome, iOS Safari ≥15)
       try {
         const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
         if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
           await navigator.share({ title: fileName, files: [pdfFile] });
-          setSharingPdf(false);
-          return;
+          setSharingPdf(false); return;
         }
       } catch (shareErr) {
         if (shareErr?.name === "AbortError") { setSharingPdf(false); return; }
-        // Share with file failed — fall through to download
       }
 
-      // Fallback: download the PDF
+      // 2. Fallback: download PDF + show share modal with direct WA button
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement("a");
       a.href = url; a.download = fileName;
       document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-
-      // Build WhatsApp text summary (open directly — user just clicked so popup allowed)
-      const bal = balLabel(currentBalance);
-      const msg = `*PoketBook Statement — ${toTitleCase(partyInfo.name)}*\n\nBalance: *₹${bal.text}*\nEntries: ${entries.length}\n\nPDF downloaded. Open WhatsApp → Attach → send the PDF.\n\n_poketbook.in_`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-      toast.success("PDF downloaded! Attach it in WhatsApp", { duration: 3000 });
+      document.body.removeChild(a);
+      // Keep blob URL for the modal (revoke on close)
+      setWaPdfUrl(url);
+      setWaFileName(fileName);
     } catch (err) {
       toast.dismiss(toastId);
       if (err?.name !== "AbortError") toast.error(err.message || "PDF generation failed", { duration: 2500 });
     }
     setSharingPdf(false);
+  };
+
+  const handleWaModalClose = () => {
+    if (waPdfUrl) URL.revokeObjectURL(waPdfUrl);
+    setWaPdfUrl(null); setWaFileName("");
   };
 
   const handleEditSave = async () => {
@@ -475,8 +477,25 @@ const LedgerPage = () => {
   return (
     <div className="flex flex-col h-full" style={{ fontFamily: "'Work Sans', sans-serif" }}>
 
-      {/* ── Red Title Bar — balance removed (shown only in control bar) ── */}
-      <div className="flex-shrink-0 text-white px-3 sm:px-5 py-2 flex items-center gap-2 sm:gap-5 flex-wrap" style={{ background: "var(--primary-gradient)" }}>
+      {/* ── Upper bar toggle handle (mobile only) ────────────── */}
+      <div className="flex-shrink-0 md:hidden">
+        <button
+          onClick={() => setShowHeader(h => !h)}
+          data-testid="header-toggle-btn"
+          style={{ width: "100%", background: "var(--primary)", border: "none", padding: "5px 12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.1)" }}
+        >
+          <span style={{ color: "#fff", fontSize: "12px", fontWeight: 600 }}>
+            {partyInfo ? `${toTitleCase(partyInfo.name)}` : "Settling Entry"}
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }}>
+            {showHeader ? "Hide" : "Show"} {showHeader ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+          </span>
+        </button>
+      </div>
+
+      {/* ── Red Title Bar — collapsible on mobile ── */}
+      <div className={`flex-shrink-0 ${showHeader ? "" : "hidden md:flex"}`}>
+      <div className="text-white px-3 sm:px-5 py-2 flex items-center gap-2 sm:gap-5 flex-wrap" style={{ background: "var(--primary-gradient)" }}>
         <span className="text-base sm:text-xl font-bold tracking-wide" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
           Settling Entry
         </span>
@@ -595,6 +614,8 @@ const LedgerPage = () => {
           </div>
         </div>
       )}
+
+      </div>{/* end collapsible upper bars */}
 
       {/* ── Full Account Info Panel ── */}
       {showFullAccount && partyInfo && selectedId && (
@@ -1036,6 +1057,44 @@ const LedgerPage = () => {
                 <button onClick={() => setTallyConfirm(false)} className="flex-1 border-2 border-stone-400 text-stone-700 py-2 text-sm font-semibold bg-white hover:bg-stone-50 rounded" data-testid="tally-cancel-btn">Cancel</button>
                 <button onClick={handleTally} className="flex-1 text-white py-2 text-sm font-bold rounded" style={{ background: "var(--primary)" }} data-testid="tally-confirm-btn">Lock Karein</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── WhatsApp PDF Share Modal ───────────────────────────── */}
+      {waPdfUrl && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl" style={{ background: "#1a1a2e" }}>
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "#25D366" }}>
+                  <MessageCircle size={16} color="#fff" />
+                </div>
+                <div>
+                  <p className="text-white text-sm font-bold">PDF Ready!</p>
+                  <p className="text-gray-400 text-xs">{waFileName}</p>
+                </div>
+              </div>
+              <button onClick={handleWaModalClose}><X size={18} className="text-gray-400 hover:text-white" /></button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-gray-300 text-xs">PDF downloaded. Now share it on WhatsApp:</p>
+              {/* Direct WhatsApp button */}
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`*PoketBook Statement — ${toTitleCase(partyInfo?.name || "")}*\n\nBalance: ${balLabel(currentBalance).text}\nEntries: ${entries.length}\n\nPDF: ${waFileName}\n_Attach the downloaded PDF from your Files app_\n\n_poketbook.in_`)}`}
+                target="_blank" rel="noopener noreferrer"
+                onClick={handleWaModalClose}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm text-white"
+                style={{ background: "#25D366" }}
+                data-testid="wa-open-btn">
+                <MessageCircle size={16} /> Open WhatsApp Now
+              </a>
+              {/* Re-download */}
+              <a href={waPdfUrl} download={waFileName} onClick={handleWaModalClose}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm text-white border border-white/20 hover:bg-white/10">
+                <Printer size={14} /> Download PDF Again
+              </a>
+              <p className="text-gray-500 text-xs text-center">On WhatsApp: tap Attach → Files → select the PDF</p>
             </div>
           </div>
         </div>
