@@ -1,0 +1,46 @@
+name: Build PoketBook Desktop (Windows EXE)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm install --legacy-peer-deps
+
+      - name: Build Electron Windows installer
+        working-directory: ./frontend
+        env:
+          CI: false
+          DISABLE_ESLINT_PLUGIN: true
+          SKIP_PREFLIGHT_CHECK: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish never
+
+      - name: Upload Windows installer (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PoketBook-Windows-Installer
+          path: frontend/dist-electron/*.exe
+          retention-days: 90
+
+      - name: Upload portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: PoketBook-Windows-Portable
+          path: frontend/dist-electron/*portable*.exe
+          retention-days: 90

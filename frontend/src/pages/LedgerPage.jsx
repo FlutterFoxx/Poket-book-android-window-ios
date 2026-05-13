@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
 import { toast } from "sonner";
-import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, Sparkles, MessageCircle, Mic, MicOff } from "lucide-react";
+import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, MessageCircle } from "lucide-react";
 
 const EMPTY_FAST = { date: today(), partyId: "", naam: "", jama: "", narration: "" };
 
@@ -45,11 +45,6 @@ const LedgerPage = () => {
   const [liveTime, setLiveTime] = useState(new Date()); // live clock
   const [isEntryOpen, setIsEntryOpen] = useState(true);
   const savingLockRef = useRef(false);
-  const [aiText, setAiText] = useState("");
-  const [aiOpen, setAiOpen] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef(null);
 
   const naamRef = useRef(null);
   const jamaRef = useRef(null);
@@ -220,88 +215,6 @@ const LedgerPage = () => {
   };
 
   // AI natural language entry parser
-  const handleAiParse = async () => {
-    if (!aiText.trim()) return;
-    setAiLoading(true);
-    try {
-      const partyNames = parties.map(p => p.name);
-      const res = await api.post("/api/ai/parse-entry", { text: aiText, parties: partyNames });
-      const { party, amount, type, narration, confidence } = res.data;
-      if (confidence < 0.4) { toast.error("Samajh nahi aaya — please clearly likho", { duration: 2000 }); setAiLoading(false); return; }
-      // Match party name to existing party
-      const matched = parties.find(p => p.name.toLowerCase().includes(party?.toLowerCase()) || party?.toLowerCase().includes(p.name.toLowerCase()));
-      setFastEntry(prev => ({
-        ...prev,
-        partyId: matched?.id || prev.partyId,
-        naam: type === "naam" ? String(amount || 0) : "",
-        jama: type === "jama" ? String(amount || 0) : "",
-        narration: narration || prev.narration,
-      }));
-      toast.success(`AI: ${party} — ₹${amount} (${type === "naam" ? "Credit/नाम" : "Debit/जमा"})`, { duration: 2000 });
-      setAiOpen(false); setAiText("");
-    } catch { toast.error("AI temporarily unavailable", { duration: 1500 }); }
-    setAiLoading(false);
-  };
-
-  // Voice entry via Web Speech API — supports Hindi + English
-  const handleVoiceEntry = () => {
-    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRec) {
-      toast.error("Voice needs Chrome browser. Use AI button to type.", { duration: 3000 });
-      setAiOpen(true);
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-    // Request mic permission first — triggers permission dialog on Android/iOS
-    if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(() => _startSpeech(SpeechRec))
-        .catch(() => toast.error("Microphone blocked — allow mic in browser settings", { duration: 3000 }));
-    } else {
-      _startSpeech(SpeechRec);
-    }
-  };
-
-  const _startSpeech = (SpeechRec) => {
-    const rec = new SpeechRec();
-    rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 3; rec.lang = "hi-IN";
-    recognitionRef.current = rec;
-    let vtid;
-    rec.onstart = () => { setIsListening(true); vtid = toast.loading("Listening... Bol do!"); };
-    rec.onresult = (e) => {
-      toast.dismiss(vtid); setIsListening(false);
-      let best = "", bestConf = 0;
-      for (let i = 0; i < e.results[0].length; i++) {
-        const r = e.results[0][i]; if (r.confidence >= bestConf) { bestConf = r.confidence; best = r.transcript; }
-      }
-      if (!best) return;
-      setAiText(best); setAiOpen(true);
-      api.post("/api/ai/parse-entry", { text: best, parties: parties.map(p => p.name) })
-        .then(res => {
-          const { party, amount, type, narration, confidence } = res.data;
-          if (confidence >= 0.4) {
-            const matched = parties.find(p => p.name.toLowerCase().includes((party||"").toLowerCase()) || (party||"").toLowerCase().includes(p.name.toLowerCase()));
-            setFastEntry(prev => ({ ...prev, partyId: matched?.id || prev.partyId, naam: type==="naam"?String(amount||0):"", jama: type==="jama"?String(amount||0):"", narration: narration||prev.narration }));
-            toast.success(`${party} — Rs.${amount} (${type==="naam"?"Credit/नाम":"Debit/जमा"})`, { duration: 2500 });
-            setAiOpen(false); setAiText("");
-          } else {
-            toast.warning("Samjha nahi — please retry or type", { duration: 2500 });
-          }
-        })
-        .catch(() => toast.error("AI failed — check connection", { duration: 2000 }));
-    };
-    rec.onerror = (e) => {
-      toast.dismiss(vtid); setIsListening(false);
-      toast.error(e.error==="not-allowed"?"Mic blocked — enable in settings":e.error==="no-speech"?"No speech — try again":`Voice error: ${e.error}`, { duration: 3000 });
-    };
-    rec.onend = () => { setIsListening(false); toast.dismiss(vtid); };
-    try { rec.start(); } catch { toast.error("Cannot start mic", { duration: 2000 }); }
-  };
-
   const [sharingPdf, setSharingPdf] = useState(false);
   const handleWhatsAppShare = async () => {
     if (!partyInfo || !selectedId || sharingPdf) return;
@@ -549,7 +462,7 @@ const LedgerPage = () => {
           </div>
         </div>
 
-        {/* Tally + Print + WhatsApp + AI + Voice */}
+        {/* Tally + Print + WhatsApp */}
         {selectedId && (
           <div className="flex items-center flex-wrap gap-1">
             {unlocked > 0 && (
@@ -562,45 +475,12 @@ const LedgerPage = () => {
             <button onClick={handleWhatsAppShare} disabled={sharingPdf} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share PDF on WhatsApp">
               <MessageCircle size={13} className={sharingPdf ? "animate-spin" : ""} /> <span className="hidden md:inline">{sharingPdf ? "..." : "Share"}</span>
             </button>
-            <button onClick={() => setAiOpen(o => !o)} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: aiOpen ? "#7C3AED" : "#8B5CF6" }} data-testid="ai-entry-btn" title="AI Entry">
-              <Sparkles size={13} /> <span className="hidden md:inline">AI</span>
-            </button>
-            <button onClick={handleVoiceEntry} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: isListening ? "#DC2626" : "#6D28D9" }} data-testid="voice-entry-btn" title="Voice Entry (Hindi/English)">
-              {isListening ? <MicOff size={13} className="animate-pulse" /> : <Mic size={13} />}
-              <span className="hidden md:inline">{isListening ? "Stop" : "Voice"}</span>
-            </button>
             <button onClick={handlePrint} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-stone-600 text-white hover:bg-stone-700 rounded" data-testid="export-pdf-btn" title="Print PDF">
               <Printer size={12} /> <span className="hidden lg:inline">Print</span>
             </button>
           </div>
         )}
       </div>
-
-      {/* AI Entry Panel */}
-      {selectedId && aiOpen && (
-        <div className="flex-shrink-0 px-3 sm:px-5 py-2.5 border-b border-purple-200" style={{ background: "#F5F3FF" }}>
-          <div className="flex items-center gap-2 max-w-xl">
-            <Sparkles size={14} className="text-purple-600 flex-shrink-0" />
-            <input
-              autoFocus
-              value={aiText}
-              onChange={e => setAiText(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") handleAiParse(); if (e.key === "Escape") setAiOpen(false); }}
-              placeholder='Type in Hindi/English: "Vansh ko 500 dena hai" or "Ramesh ne 1000 diya"'
-              className="flex-1 text-sm border border-purple-300 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
-              data-testid="ai-input"
-            />
-            <button onClick={handleAiParse} disabled={aiLoading || !aiText.trim()}
-              className="px-3 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50 transition-colors"
-              style={{ background: "#7C3AED" }}>
-              {aiLoading ? "..." : "Parse"}
-            </button>
-            <button onClick={() => setAiOpen(false)} className="text-stone-400 hover:text-stone-600">
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-      )}
 
       </div>{/* end collapsible upper bars */}
 
@@ -846,7 +726,7 @@ const LedgerPage = () => {
                         className="pk-input" style={{ appearance: "none", paddingRight: "28px", fontSize: "13px", fontWeight: 600 }}
                         data-testid="fast-entry-party-select">
                         <option value="">Select party</option>
-                        {parties.filter((p) => p.id !== selectedId).map((p) => <option key={p.id} value={p.id}>{toTitleCase(p.name)}</option>)}
+                        {parties.filter((p) => p.id !== selectedId).map((p) => { const bal = p.current_balance; const balStr = bal > 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Lena]` : bal < 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Dena]` : " [0]"; return <option key={p.id} value={p.id}>{toTitleCase(p.name)}{balStr}</option>; })}
                       </select>
                       <ChevronDown size={14} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", pointerEvents: "none" }} />
                     </div>
@@ -921,7 +801,7 @@ const LedgerPage = () => {
                   className="appearance-none border-2 border-stone-600 px-2 py-1.5 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-44 pr-6"
                   data-testid="fast-entry-party-select">
                   <option value="">-- Party --</option>
-                  {parties.filter((p) => p.id !== selectedId).map((p) => <option key={p.id} value={p.id}>{toTitleCase(p.name)}</option>)}
+                  {parties.filter((p) => p.id !== selectedId).map((p) => { const bal = p.current_balance; const balStr = bal > 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Lena]` : bal < 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Dena]` : " [0]"; return <option key={p.id} value={p.id}>{toTitleCase(p.name)}{balStr}</option>; })}
                 </select>
                 <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" />
               </div>

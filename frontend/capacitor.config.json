@@ -1,14 +1,15 @@
 {
   "appId": "in.poketbook.app",
-  "appName": "poketbook",
+  "appName": "PoketBook",
   "webDir": "build",
   "server": {
-    "url": "https://party-tally-1.preview.emergentagent.com",
+    "url": "https://poketbook.in",
     "cleartext": false,
     "androidScheme": "https",
     "iosScheme": "https",
     "hostname": "poketbook.in",
     "allowNavigation": [
+      "poketbook.in",
       "party-tally-1.preview.emergentagent.com",
       "*.google.com",
       "accounts.google.com",
@@ -21,10 +22,7 @@
     "captureInput": true,
     "webContentsDebuggingEnabled": false,
     "minWebViewVersion": 60,
-    "buildOptions": {
-      "targetSdkVersion": 34,
-      "minSdkVersion": 22
-    }
+    "buildOptions": { "targetSdkVersion": 34, "minSdkVersion": 22 }
   },
   "ios": {
     "backgroundColor": "#0A0F1E",
@@ -34,18 +32,7 @@
     "scheme": "poketbook"
   },
   "plugins": {
-    "SplashScreen": {
-      "launchShowDuration": 2000,
-      "backgroundColor": "#0A0F1E",
-      "showSpinner": false,
-      "androidSplashResourceName": "splash",
-      "iosSplashFullScreen": true,
-      "iosSpinnerStyle": "small",
-      "spinnerColor": "#22C55E"
-    },
-    "StatusBar": {
-      "style": "DARK",
-      "backgroundColor": "#0A0F1E"
-    }
+    "SplashScreen": { "launchShowDuration": 2000, "backgroundColor": "#0A0F1E", "showSpinner": false, "spinnerColor": "#22C55E" },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#0A0F1E" }
   }
 }

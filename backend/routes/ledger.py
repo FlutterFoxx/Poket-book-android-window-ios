@@ -62,6 +62,8 @@ async def get_parties(current_user: dict = Depends(get_current_user)):
                 else ("Balance zero nahi hai" if not balance_zero else f"{unlocked} unlocked entries hain")
             ),
         })
+    # Sort A-Z by party name (case-insensitive)
+    result.sort(key=lambda x: x["name"].lower())
     return result
 
 @router.post("/parties")

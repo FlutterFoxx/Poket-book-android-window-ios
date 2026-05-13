@@ -1,7 +1,9 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "poketbook-desktop",
+  "version": "1.1.0",
   "private": true,
+  "main": "electron.js",
+  "homepage": "https://poketbook.in",
   "dependencies": {
     "@capacitor/android": "6.2.0",
     "@capacitor/core": "6.2.0",
@@ -27,7 +29,48 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "test": "craco test"
+    "test": "craco test",
+    "electron": "electron .",
+    "electron:build": "craco build && electron-builder",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "in.poketbook.desktop",
+    "productName": "PoketBook",
+    "copyright": "Copyright © 2026 Flutter Fox",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron.js",
+      "public/logo512.png",
+      "public/logo.png"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64", "ia32"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "public/logo512.png",
+      "publisherName": "Flutter Fox"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PoketBook"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/logo512.png",
+      "category": "public.app-category.finance"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/logo512.png",
+      "category": "Finance"
+    }
   },
   "browserslist": {
     "production": [
@@ -46,6 +89,8 @@
     "@capacitor/cli": "6.2.0",
     "@craco/craco": "^7.1.0",
     "autoprefixer": "^10.4.20",
+    "electron": "31",
+    "electron-builder": "24",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17"
   }
