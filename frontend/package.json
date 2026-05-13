@@ -37,19 +37,32 @@
   "build": {
     "appId": "in.poketbook.desktop",
     "productName": "PoketBook",
-    "copyright": "Copyright © 2026 Flutter Fox",
+    "copyright": "Copyright \u00a9 2026 Flutter Fox",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "public"
     },
     "files": [
       "electron.js",
-      "public/logo512.png",
-      "public/logo.png"
+      "public/**/*",
+      "!public/index.html",
+      "!src/**/*"
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64", "ia32"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "public/logo512.png",
       "publisherName": "Flutter Fox"
@@ -70,7 +83,8 @@
       "target": "AppImage",
       "icon": "public/logo512.png",
       "category": "Finance"
-    }
+    },
+    "extraFiles": []
   },
   "browserslist": {
     "production": [
