@@ -158,9 +158,19 @@ async def export_ledger_pdf(
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15*mm, rightMargin=15*mm, topMargin=10*mm, bottomMargin=12*mm)
 
-    # Branded header
+    # Logo: resize to 48x48 thumbnail to keep PDF small & fast
     LOGO_PATH = "/app/frontend/public/logo.png"
-    logo_img = RLImage(LOGO_PATH, width=26, height=29) if os.path.exists(LOGO_PATH) else Paragraph("", ParagraphStyle("x"))
+    try:
+        from PIL import Image as PILImage
+        pil_img = PILImage.open(LOGO_PATH).convert("RGBA")
+        pil_img.thumbnail((48, 48), PILImage.LANCZOS)
+        logo_buf = io.BytesIO()
+        pil_img.save(logo_buf, format="PNG", optimize=True)
+        logo_buf.seek(0)
+        logo_img = RLImage(logo_buf, width=22, height=22)
+    except Exception:
+        logo_img = Paragraph("", ParagraphStyle("x"))
+
     hdr_tbl = Table([[
         logo_img,
         [Paragraph("<b>PoketBook</b>", ParagraphStyle("h1", fontSize=13, fontName="Helvetica-Bold", textColor=GREEN)),
@@ -283,10 +293,16 @@ async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
     dena = data["dena_hai"];  lena = data["lena_hai"];  max_rows = max(len(dena), len(lena), 1)
     net  = data.get("net_balance", 0)
 
-    # ── Header table: logo + title + date (matches web app dark header) ──────
+    # ── Header table: logo (small thumbnail for fast PDF) + title + date ──────
     LOGO_PATH = "/app/frontend/public/logo.png"
-    logo_img = RLImage(LOGO_PATH, width=28, height=31) if os.path.exists(LOGO_PATH) else None
-    logo_cell = logo_img if logo_img else Paragraph("", ParagraphStyle("x"))
+    try:
+        from PIL import Image as PILImage
+        pil_img = PILImage.open(LOGO_PATH).convert("RGBA")
+        pil_img.thumbnail((48, 48), PILImage.LANCZOS)
+        lbuf = io.BytesIO(); pil_img.save(lbuf, format="PNG", optimize=True); lbuf.seek(0)
+        logo_cell = RLImage(lbuf, width=24, height=24)
+    except Exception:
+        logo_cell = Paragraph("", ParagraphStyle("x"))
     hdr_title  = Paragraph("<b>PoketBook</b>", ParagraphStyle("ht", fontSize=14, fontName="Helvetica-Bold", textColor=GREEN))
     hdr_sub    = Paragraph("Digital Udhar Khaata", ParagraphStyle("hs", fontSize=8, textColor=colors.HexColor("#94A3B8")))
     hdr_sheet  = Paragraph("Balance Sheet", ParagraphStyle("hsh", fontSize=16, fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_CENTER))

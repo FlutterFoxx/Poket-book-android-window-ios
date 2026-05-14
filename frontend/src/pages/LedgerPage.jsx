@@ -530,51 +530,73 @@ const LedgerPage = () => {
             </div>
           ) : (
             <>
-              {/* MOBILE: Card view < md */}
-              <div className="block md:hidden p-3 space-y-3">
+              {/* MOBILE: Compact table-style cards < md */}
+              <div className="block md:hidden">
+                {/* Mobile column header strip */}
+                {entries.length > 0 && (
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 80px 90px", gap:"4px", background:"var(--primary)", padding:"6px 12px", fontSize:"10px", fontWeight:700, color:"rgba(255,255,255,0.8)", letterSpacing:"0.3px", textTransform:"uppercase" }}>
+                    <span>Date / Party</span>
+                    <span style={{ textAlign:"right" }}>Credit</span>
+                    <span style={{ textAlign:"right" }}>Debit</span>
+                    <span style={{ textAlign:"right" }}>Balance</span>
+                  </div>
+                )}
+                <div className="p-2 space-y-1">
                 {entries.length === 0 ? (
                   <div className="pk-card text-center py-10">
                     <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Koi entry nahi hai — neeche se add karein</p>
                   </div>
-                ) : entries.map((e) => (
-                  <div key={e.id} className="pk-card" data-testid={`ledger-row-${e.id}`}
-                    style={{ borderLeft: `3px solid ${e.naam > 0 ? "var(--lena)" : "var(--dena)"}` }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"8px" }}>
-                      <div>
-                        <div style={{ fontSize:"13px", fontWeight:600, fontFamily:"var(--font-mono)", color:"var(--text-primary)" }}>{formatDate(e.date)}</div>
-                        {e.created_at && <div style={{ fontSize:"11px", color:"var(--text-tertiary)", fontFamily:"var(--font-mono)" }}>{formatTime(e.created_at)}</div>}
-                      </div>
-                      <div style={{ textAlign:"right" }}>
-                        <div style={{ fontSize:"15px", fontWeight:700, fontFamily:"var(--font-mono)", color: e.balance > 0 ? "var(--dena)" : e.balance < 0 ? "var(--lena)" : "var(--text-tertiary)" }}>
-                          ₹{Math.abs(e.balance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                ) : visibleEntries.map((e, idx) => {
+                  const balColor = e.balance > 0 ? "var(--dena)" : e.balance < 0 ? "var(--lena)" : "var(--text-tertiary)";
+                  const rowBg = idx % 2 === 0 ? "#FFE8CC" : "#FFDAB0";
+                  return (
+                    <div key={e.id} data-testid={`ledger-row-${e.id}`}
+                      style={{ background: rowBg, borderRadius:"6px", overflow:"hidden", border:"0.5px solid #e5c99b" }}>
+                      {/* Main row: date+party | credit | debit | balance */}
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 80px 90px", gap:"4px", padding:"8px 10px", alignItems:"center" }}>
+                        {/* Left: date + party */}
+                        <div>
+                          <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                            <span style={{ fontSize:"12px", fontWeight:700, fontFamily:"var(--font-mono)", color:"#374151" }}>{formatDate(e.date)}</span>
+                            {e.is_locked && <span style={{ fontSize:"9px", background:"#FEF3C7", color:"#92400E", padding:"1px 5px", borderRadius:"4px", fontWeight:700 }}>★</span>}
+                          </div>
+                          <div style={{ fontSize:"12px", fontWeight:600, color:"var(--dena)", marginTop:"1px" }}>{toTitleCase(e.counterparty_name || "—")}</div>
+                          {e.narration && <div style={{ fontSize:"11px", color:"#6B7280", fontStyle:"italic", marginTop:"2px" }}>{e.narration}</div>}
                         </div>
-                        {e.is_locked && <span style={{ fontSize:"10px", background:"var(--warning-bg)", color:"var(--warning)", padding:"2px 6px", borderRadius:"8px", fontWeight:600 }}>Locked ★</span>}
+                        {/* Credit (नाम) */}
+                        <div style={{ textAlign:"right", fontSize:"13px", fontFamily:"var(--font-mono)", fontWeight:700, color:"var(--lena)" }}>
+                          {e.naam > 0 ? `₹${e.naam.toLocaleString("en-IN",{minimumFractionDigits:2})}` : ""}
+                        </div>
+                        {/* Debit (जमा) */}
+                        <div style={{ textAlign:"right", fontSize:"13px", fontFamily:"var(--font-mono)", fontWeight:700, color:"#166534" }}>
+                          {e.jama > 0 ? `₹${e.jama.toLocaleString("en-IN",{minimumFractionDigits:2})}` : ""}
+                        </div>
+                        {/* Running Balance */}
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontSize:"13px", fontFamily:"var(--font-mono)", fontWeight:700, color: balColor }}>
+                            ₹{Math.abs(e.balance).toLocaleString("en-IN",{minimumFractionDigits:2})}
+                          </div>
+                          <div style={{ fontSize:"10px", color: balColor, fontWeight:600 }}>
+                            {e.balance > 0 ? "देने" : e.balance < 0 ? "लेने" : "बराबर"}
+                          </div>
+                        </div>
                       </div>
+                      {/* Edit/Delete row */}
+                      {!e.is_locked && (
+                        <div style={{ borderTop:"0.5px solid #e5c99b", padding:"5px 10px", display:"flex", gap:"6px", justifyContent:"flex-end", background:"rgba(0,0,0,0.04)" }}>
+                          <button onClick={()=>{setEditEntry(e);setEditForm({date:e.date,naam:e.naam||"",jama:e.jama||"",narration:e.narration||""}); }}
+                            style={{ background:"var(--info-bg)", border:"none", borderRadius:"6px", padding:"4px 10px", color:"var(--info)", fontSize:"12px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"3px" }}
+                            data-testid={`edit-entry-${e.id}`}><Pencil size={11} /> Edit</button>
+                          <button onClick={()=>setDeleteEntry(e)}
+                            style={{ background:"var(--danger-bg)", border:"none", borderRadius:"6px", padding:"4px 10px", color:"var(--danger)", fontSize:"12px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"3px" }}
+                            data-testid={`delete-entry-${e.id}`}><Trash2 size={11} /> Delete</button>
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: e.narration ? "8px" : "0" }}>
-                      <span style={{ fontSize:"14px", fontWeight:600, color:"var(--dena)" }}>{toTitleCase(e.counterparty_name || "—")}</span>
-                      <div>
-                        {e.naam > 0 && <span style={{ fontSize:"14px", fontWeight:700, fontFamily:"var(--font-mono)", color:"var(--lena)" }}>Credit ₹{e.naam.toLocaleString("en-IN",{minimumFractionDigits:2})}</span>}
-                        {e.jama > 0 && <span style={{ fontSize:"14px", fontWeight:700, fontFamily:"var(--font-mono)", color:"#166534" }}>Debit ₹{e.jama.toLocaleString("en-IN",{minimumFractionDigits:2})}</span>}
-                      </div>
-                    </div>
-                    {e.narration && (
-                      <div style={{ fontSize:"13px", color:"var(--text-secondary)", fontStyle:"italic", padding:"6px 10px", background:"var(--bg-page)", borderRadius:"6px", marginBottom:"8px" }}>
-                        "{e.narration}"
-                      </div>
-                    )}
-                    {!e.is_locked && (
-                      <div style={{ borderTop:"0.5px solid var(--border)", paddingTop:"8px", display:"flex", gap:"8px", justifyContent:"flex-end" }}>
-                        <button onClick={()=>{setEditEntry(e);setEditForm({date:e.date,naam:e.naam||"",jama:e.jama||"",narration:e.narration||""});}}
-                          style={{ background:"var(--info-bg)", border:"none", borderRadius:"8px", padding:"6px 14px", color:"var(--info)", fontSize:"13px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"4px" }}
-                          data-testid={`edit-entry-${e.id}`}><Pencil size={13} /> Edit</button>
-                        <button onClick={()=>setDeleteEntry(e)}
-                          style={{ background:"var(--danger-bg)", border:"none", borderRadius:"8px", padding:"6px 14px", color:"var(--danger)", fontSize:"13px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"4px" }}
-                          data-testid={`delete-entry-${e.id}`}><Trash2 size={13} /> Delete</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
+
+                </div>
               </div>
 
               {/* DESKTOP: Table view md+ */}
