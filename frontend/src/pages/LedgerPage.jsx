@@ -222,21 +222,35 @@ const LedgerPage = () => {
     const toastId = toast.loading("Generating PDF...");
     try {
       const BACKEND = process.env.REACT_APP_BACKEND_URL || "";
-      const token = sessionStorage.getItem("access_token") || localStorage.getItem("access_token") || "";
-      const resp = await fetch(`${BACKEND}/api/export/ledger/${selectedId}/pdf`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!resp.ok) throw new Error(`PDF failed: ${resp.status}`);
-      const pdfBlob = await resp.blob();
+      const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token") || "";
+
+      // Retry up to 3 times with 2s delay between attempts
+      let pdfBlob = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const resp = await fetch(`${BACKEND}/api/export/ledger/${selectedId}/pdf`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          pdfBlob = await resp.blob();
+          if (pdfBlob.size < 100) throw new Error("PDF too small, likely empty");
+          break; // Success
+        } catch (fetchErr) {
+          if (attempt === 3) throw fetchErr;
+          toast.loading(`PDF failed, retrying (${attempt}/3)...`, { id: toastId });
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
       toast.dismiss(toastId);
 
-      // Native OS share sheet — user picks WhatsApp directly (works on Android Chrome & iOS Safari)
+      // Try native share sheet (Android/iOS — user picks WhatsApp directly)
       const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
       if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
         await navigator.share({ title: fileName, files: [pdfFile] });
       } else {
-        // Desktop fallback: download PDF silently + open WhatsApp with text
+        // Desktop fallback: download + open WhatsApp
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement("a");
         a.href = url; a.download = fileName;
@@ -248,7 +262,7 @@ const LedgerPage = () => {
       }
     } catch (err) {
       toast.dismiss(toastId);
-      if (err?.name !== "AbortError") toast.error("PDF share failed", { duration: 2000 });
+      if (err?.name !== "AbortError") toast.error(`PDF failed: ${err.message || "try again"}`, { duration: 3000 });
     }
     setSharingPdf(false);
   };

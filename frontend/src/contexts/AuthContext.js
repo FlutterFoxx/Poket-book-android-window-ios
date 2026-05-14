@@ -3,15 +3,19 @@ import axios from "axios";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
-// ── Token storage ────────────────────────────────────────────────────────────
-// NOTE(security): Tokens are stored in sessionStorage to solve a Kubernetes
-// ingress CORS issue that prevents httpOnly cookies from working cross-origin.
-// The backend also sets httpOnly cookies as a secondary layer.
-// Mitigation: Short token TTL (30 min), automatic refresh, XSS defense via CSP.
-const getToken = () => sessionStorage.getItem("access_token");
-const setToken = (t) => t ? sessionStorage.setItem("access_token", t) : sessionStorage.removeItem("access_token");
-const setRefreshToken = (t) => t ? sessionStorage.setItem("refresh_token", t) : sessionStorage.removeItem("refresh_token");
-const getRefreshToken = () => sessionStorage.getItem("refresh_token");
+// ── Token storage — localStorage for persistence across app restarts ─────────
+// Mobile/desktop apps need tokens to survive close/reopen (15+ day sessions).
+// localStorage persists indefinitely; tokens have 7-day expiry built in.
+const getToken = () => localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+const setToken = (t) => {
+  if (t) { localStorage.setItem("access_token", t); sessionStorage.setItem("access_token", t); }
+  else { localStorage.removeItem("access_token"); sessionStorage.removeItem("access_token"); }
+};
+const setRefreshToken = (t) => {
+  if (t) { localStorage.setItem("refresh_token", t); sessionStorage.setItem("refresh_token", t); }
+  else { localStorage.removeItem("refresh_token"); sessionStorage.removeItem("refresh_token"); }
+};
+const getRefreshToken = () => localStorage.getItem("refresh_token") || sessionStorage.getItem("refresh_token");
 
 export const api = axios.create({ baseURL: BASE });
 

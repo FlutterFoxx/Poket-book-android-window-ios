@@ -27,6 +27,18 @@ const Layout = ({ children }) => (
   </div>
 );
 
+// Detect if running as installed app (Capacitor Android/iOS or Electron desktop)
+// In these contexts, show Login directly — not the marketing landing page
+const isInstalledApp = () => {
+  // Capacitor native (Android APK / iOS IPA)
+  if (window.Capacitor?.isNativePlatform?.()) return true;
+  // Electron desktop (loads poketbook.in in a window wrapper)
+  if (navigator.userAgent?.includes("Electron")) return true;
+  // PWA installed (standalone display mode)
+  if (window.matchMedia?.("(display-mode: standalone)")?.matches) return true;
+  return false;
+};
+
 const RootRoute = () => {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -46,7 +58,8 @@ const RootRoute = () => {
       </div>
     </div>
   );
-  if (!user) return <LandingPage />;
+  // App context (Android/iOS/Electron/PWA): go straight to Login, skip landing page
+  if (!user) return isInstalledApp() ? <Login /> : <LandingPage />;
   return <Layout><Dashboard /></Layout>;
 };
 
