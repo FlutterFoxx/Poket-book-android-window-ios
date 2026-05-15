@@ -582,6 +582,7 @@ const LandingPage = () => {
                 <button onClick={()=>scrollTo("about")} className="block text-sm text-gray-400 hover:text-white transition-colors">About Us</button>
                 <a href="https://flutterfox.in" rel="dofollow" target="_blank" className="block text-sm text-gray-400 hover:text-white transition-colors">Flutter Fox</a>
                 <Link to="/how-to-use" className="block text-sm text-gray-400 hover:text-white transition-colors">How to Use</Link>
+                <Link to="/download" className="block text-sm text-green-400 hover:text-green-300 transition-colors font-semibold">⬇ Download App</Link>
                 <Link to="/contact" className="block text-sm text-gray-400 hover:text-white transition-colors">Contact Us</Link>
                 <Link to="/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">Privacy Policy</Link>
                 <Link to="/terms" className="block text-sm text-gray-400 hover:text-white transition-colors">Terms & Conditions</Link>

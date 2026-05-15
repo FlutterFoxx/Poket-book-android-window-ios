@@ -117,67 +117,34 @@ const Navbar = () => {
       style={{ background: "var(--primary-gradient)" }}
       data-testid="header-nav"
     >
-      <div className="flex items-center h-12 px-4 gap-0">
+      <div className="flex items-center h-11 px-3 gap-0">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 pr-4 border-r border-white/10 flex-shrink-0">
-          <img src="/logo.png" alt="poketbook" className="w-8 h-8 object-contain" />
-          <span className="font-bold text-base" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+        <Link to="/" className="flex items-center gap-2 pr-3 border-r border-white/10 flex-shrink-0">
+          <img src="/logo.png" alt="poketbook" className="w-7 h-7 object-contain" />
+          <span className="font-bold text-sm md:text-base" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
             <span className="text-white">Poket</span><span className="text-green-400">Book</span>
           </span>
         </Link>
 
-        {/* Desktop nav links */}
+        {/* Desktop nav links — hidden on mobile (BottomNav handles mobile nav) */}
         <NavLinks isActive={isActive} />
 
         {/* User menu dropdown (desktop) */}
         <UserMenu user={user} logout={logout} menuRef={menuRef} />
 
-        {/* Language Toggle (desktop) */}
+        {/* Language Toggle (desktop only) */}
         <div className="hidden sm:block ml-2 flex-shrink-0">
           <LangToggle />
         </div>
 
-        {/* Mobile hamburger */}
-        <button
-          onClick={() => setMobileOpen((p) => !p)}
-          className="md:hidden flex items-center justify-center w-9 h-9 ml-auto hover:bg-white/10 rounded transition-colors"
-          aria-label="Toggle menu"
-          data-testid="hamburger-btn"
-        >
-          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div className="md:hidden border-t border-white/10 var(--primary-dark)" data-testid="mobile-menu">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-            <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-              {user?.name?.[0]?.toUpperCase() || "U"}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-              <p className="text-xs text-blue-300 truncate">{user?.email}</p>
-            </div>
-          </div>
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              data-testid={`mobile-nav-${item.testId}`}
-              className={`flex items-center gap-3 px-5 py-3.5 text-base font-medium border-b border-white/10 transition-colors ${
-                isActive(item.path) ? "bg-blue-700 text-white border-l-4 border-l-green-400" : "text-gray-200 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <item.icon size={18} />{item.label}
-            </Link>
-          ))}
-          <button onClick={logout} data-testid="logout-btn"
-            className="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-300 hover:bg-white/10 transition-colors">
-            <LogOut size={18} /> Logout / Bahar
+        {/* Mobile: compact right side — user avatar only */}
+        <div className="md:hidden ml-auto flex items-center gap-2">
+          <LangToggle />
+          <button onClick={logout} className="text-xs text-white/70 hover:text-white px-2 py-1 border border-white/20 rounded-lg">
+            Logout
           </button>
         </div>
-      )}
+      </div>
     </header>
   );
 };

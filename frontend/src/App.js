@@ -5,6 +5,7 @@ import { LangProvider } from "@/contexts/LangContext";
 import { Toaster } from "sonner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Navbar from "@/components/Navbar";
+import { BottomNav } from "@/components/BottomNav";
 import Login from "@/pages/Login";
 import LandingPage from "@/pages/LandingPage";
 import HowToUsePage from "@/pages/HowToUsePage";
@@ -18,6 +19,7 @@ import ExportPage from "@/pages/ExportPage";
 
 import SettingsPage from "@/pages/SettingsPage";
 import RecycleBinPage from "@/pages/RecycleBinPage";
+import DownloadPage from "@/pages/DownloadPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
 
@@ -25,6 +27,7 @@ const Layout = ({ children }) => (
   <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-page)" }}>
     <Navbar />
     <main className="flex-1 overflow-auto" style={{ background: "var(--bg-page)" }}>{children}</main>
+    <BottomNav />
   </div>
 );
 
@@ -84,6 +87,7 @@ function AppInner() {
           <Route path="/export" element={<ProtectedRoute><Layout><ExportPage /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
           <Route path="/recycle-bin" element={<ProtectedRoute><Layout><RecycleBinPage /></Layout></ProtectedRoute>} />
+          <Route path="/download" element={<DownloadPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

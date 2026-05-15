@@ -24,7 +24,8 @@
     "react-scripts": "5.0.1",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.2.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "v8-compile-cache": "^2.4.0"
   },
   "scripts": {
     "start": "craco start",
@@ -45,7 +46,8 @@
     "files": [
       "build/**/*",
       "!build/static/js/*.map",
-      "!build/static/css/*.map"
+      "!build/static/css/*.map",
+      "!node_modules/.cache/**/*"
     ],
     "win": {
       "target": [
@@ -58,14 +60,16 @@
         }
       ],
       "icon": "public/logo512.png",
-      "publisherName": "Flutter Fox"
+      "publisherName": "Flutter Fox",
+      "artifactName": "PoketBook-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "PoketBook"
+      "shortcutName": "PoketBook",
+      "differentialPackage": true
     },
     "mac": {
       "target": "dmg",
@@ -78,7 +82,13 @@
       "category": "Finance"
     },
     "extraFiles": [],
-    "publish": null
+    "publish": null,
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "**/node_modules/sharp/**/*"
+    ],
+    "compression": "maximum"
   },
   "browserslist": {
     "production": [
@@ -100,7 +110,8 @@
     "electron": "31",
     "electron-builder": "24",
     "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "v8-compile-cache": "^2.4.0"
   },
   "author": {
     "name": "Flutter Fox",
