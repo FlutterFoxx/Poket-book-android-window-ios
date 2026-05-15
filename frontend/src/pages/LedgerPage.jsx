@@ -762,7 +762,7 @@ const LedgerPage = () => {
                         className="pk-input" style={{ appearance: "none", paddingRight: "28px", fontSize: "13px", fontWeight: 600 }}
                         data-testid="fast-entry-party-select">
                         <option value="">Select party</option>
-                        {parties.filter((p) => p.id !== selectedId).map((p) => { const bal = p.current_balance; const balStr = bal > 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Lena]` : bal < 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Dena]` : " [0]"; return <option key={p.id} value={p.id}>{toTitleCase(p.name)}{balStr}</option>; })}
+                        {parties.filter((p) => p.id !== selectedId).map((p) => { const bal = p.current_balance; const balStr = bal > 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Dena]` : bal < 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Lena]` : " [0]"; return <option key={p.id} value={p.id}>{toTitleCase(p.name)}{balStr}</option>; })}
                       </select>
                       <ChevronDown size={14} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", pointerEvents: "none" }} />
                     </div>
@@ -837,7 +837,7 @@ const LedgerPage = () => {
                   className="appearance-none border-2 border-stone-600 px-2 py-1.5 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-44 pr-6"
                   data-testid="fast-entry-party-select">
                   <option value="">-- Party --</option>
-                  {parties.filter((p) => p.id !== selectedId).map((p) => { const bal = p.current_balance; const balStr = bal > 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Lena]` : bal < 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Dena]` : " [0]"; return <option key={p.id} value={p.id}>{toTitleCase(p.name)}{balStr}</option>; })}
+                  {parties.filter((p) => p.id !== selectedId).map((p) => { const bal = p.current_balance; const balStr = bal > 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Dena]` : bal < 0 ? ` [₹${Math.abs(bal).toLocaleString("en-IN",{maximumFractionDigits:0})} Lena]` : " [0]"; return <option key={p.id} value={p.id}>{toTitleCase(p.name)}{balStr}</option>; })}
                 </select>
                 <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" />
               </div>

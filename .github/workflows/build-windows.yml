@@ -22,25 +22,42 @@ jobs:
         working-directory: ./frontend
         run: npm install --legacy-peer-deps
 
-      - name: Build Electron Windows app
+      - name: Build React app
         working-directory: ./frontend
         env:
           CI: "false"
           DISABLE_ESLINT_PLUGIN: "true"
           SKIP_PREFLIGHT_CHECK: "true"
+          GENERATE_SOURCEMAP: "false"
+          REACT_APP_BACKEND_URL: "https://poketbook.in"
+        run: npm run build
+
+      - name: Copy electron.js into build folder
+        working-directory: ./frontend
+        shell: bash
+        run: |
+          cp electron.js build/electron.js
+          cp public/logo.png build/logo.png 2>/dev/null || true
+          cp public/logo512.png build/logo512.png 2>/dev/null || true
+          echo "Files in build/:"
+          ls build/*.js build/*.png 2>/dev/null
+
+      - name: Build Electron Windows installer
+        working-directory: ./frontend
+        env:
+          CI: "false"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish never
 
-      - name: List dist output
+      - name: List output
         working-directory: ./frontend
         shell: bash
-        run: ls dist-electron/ 2>/dev/null || echo "dist-electron not found"
+        run: ls dist-electron/ 2>/dev/null || echo "No dist-electron found"
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: PoketBook-Windows-v1.1.0
-          path: |
-            frontend/dist-electron/
+          path: frontend/dist-electron/
           if-no-files-found: warn
           retention-days: 90

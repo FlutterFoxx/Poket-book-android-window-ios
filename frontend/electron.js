@@ -1,49 +1,44 @@
 const { app, BrowserWindow, shell } = require("electron");
 const path = require("path");
+const url = require("url");
 
-// PoketBook Desktop App — connects to cloud backend at poketbook.in
+// PoketBook Desktop — connects to cloud backend at poketbook.in
 const POKETBOOK_URL = "https://poketbook.in";
 
-let mainWindow;
-
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     title: "PoketBook — Digital Udhar Khaata",
-    icon: path.join(__dirname, "public", "logo512.png"),
+    icon: path.join(__dirname, "..", "logo512.png"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true,
-      sandbox: true,
     },
     backgroundColor: "#0A0F1E",
-    show: false, // Show after load to avoid flash
-    autoHideMenuBar: true, // Cleaner look
+    show: false,
+    autoHideMenuBar: true,
   });
 
   // Load the cloud app
-  mainWindow.loadURL(POKETBOOK_URL);
+  win.loadURL(POKETBOOK_URL);
 
-  // Show window once ready
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-    mainWindow.focus();
+  win.once("ready-to-show", () => {
+    win.show();
+    win.focus();
   });
 
-  // Open external links in default browser (WhatsApp, Google OAuth, etc.)
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(POKETBOOK_URL) && !url.startsWith("https://party-tally-1.preview")) {
-      shell.openExternal(url);
+  // Open external links in default browser
+  win.webContents.setWindowOpenHandler(({ url: u }) => {
+    if (!u.startsWith(POKETBOOK_URL)) {
+      shell.openExternal(u);
       return { action: "deny" };
     }
     return { action: "allow" };
   });
-
-  mainWindow.on("closed", () => { mainWindow = null; });
 }
 
 app.whenReady().then(() => {

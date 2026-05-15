@@ -2,7 +2,7 @@
   "name": "poketbook-desktop",
   "version": "1.1.0",
   "private": true,
-  "main": "electron.js",
+  "main": "build/electron.js",
   "homepage": "https://poketbook.in",
   "dependencies": {
     "@capacitor/android": "6.2.0",
@@ -43,10 +43,9 @@
       "buildResources": "public"
     },
     "files": [
-      "electron.js",
-      "public/**/*",
-      "!public/index.html",
-      "!src/**/*"
+      "build/**/*",
+      "!build/static/js/*.map",
+      "!build/static/css/*.map"
     ],
     "win": {
       "target": [
@@ -107,5 +106,11 @@
     "electron-builder": "24",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17"
-  }
+  },
+  "author": {
+    "name": "Flutter Fox",
+    "email": "Solution@poketbook.in",
+    "url": "https://flutterfox.in"
+  },
+  "description": "PoketBook \u2014 Digital Udhar Khaata for Indian Businesses"
 }

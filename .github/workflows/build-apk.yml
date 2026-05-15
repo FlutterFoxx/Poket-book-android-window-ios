@@ -119,14 +119,20 @@ jobs:
         run: chmod +x gradlew
       - name: Decode keystore
         run: |
+          echo "=== Signing Debug ==="
+          echo "SIGNING_KEY set: $([ -n "$SIGNING_KEY" ] && echo YES || echo NO)"
+          echo "KEYSTORE_PASSWORD set: $([ -n "$KEYSTORE_PASS" ] && echo YES || echo NO)"
+          echo "KEY_ALIAS set: $([ -n "$KEY_ALIAS_VAL" ] && echo YES || echo NO)"
           if [ -n "$SIGNING_KEY" ]; then
             echo "$SIGNING_KEY" | base64 --decode > ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
             echo "Keystore decoded: $(stat -c%s ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore) bytes"
           else
-            echo "No ANDROID_SIGNING_KEY secret — will fall back to debug build"
+            echo "WARNING: ANDROID_SIGNING_KEY secret is empty or not set — will build DEBUG APK"
           fi
         env:
           SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS_VAL: ${{ secrets.ANDROID_KEY_ALIAS }}
       - name: Build Android artifacts
         working-directory: ./frontend/android
         env:
