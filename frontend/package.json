@@ -55,12 +55,6 @@
             "x64",
             "ia32"
           ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
         }
       ],
       "icon": "public/logo512.png",
@@ -83,7 +77,8 @@
       "icon": "public/logo512.png",
       "category": "Finance"
     },
-    "extraFiles": []
+    "extraFiles": [],
+    "publish": null
   },
   "browserslist": {
     "production": [
@@ -112,5 +107,9 @@
     "email": "Solution@poketbook.in",
     "url": "https://flutterfox.in"
   },
-  "description": "PoketBook \u2014 Digital Udhar Khaata for Indian Businesses"
+  "description": "PoketBook \u2014 Digital Udhar Khaata for Indian Businesses",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flutterfoxin-sudo/poketbook-build-app.git"
+  }
 }

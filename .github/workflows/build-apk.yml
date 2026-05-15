@@ -117,31 +117,28 @@ jobs:
       - name: Make Gradle executable
         working-directory: ./frontend/android
         run: chmod +x gradlew
-      - name: Decode keystore
+      - name: Setup keystore for signing
         run: |
-          echo "=== Signing Debug ==="
-          echo "SIGNING_KEY set: $([ -n "$SIGNING_KEY" ] && echo YES || echo NO)"
-          echo "KEYSTORE_PASSWORD set: $([ -n "$KEYSTORE_PASS" ] && echo YES || echo NO)"
-          echo "KEY_ALIAS set: $([ -n "$KEY_ALIAS_VAL" ] && echo YES || echo NO)"
+          echo "=== Signing Setup ==="
           if [ -n "$SIGNING_KEY" ]; then
             echo "$SIGNING_KEY" | base64 --decode > ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
-            echo "Keystore decoded: $(stat -c%s ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore) bytes"
+            echo "Keystore from GitHub Secret: $(stat -c%s ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore) bytes"
+          elif [ -f "${{ github.workspace }}/frontend/android/app/poketbook-release.keystore" ]; then
+            echo "Using repo keystore file"
           else
-            echo "WARNING: ANDROID_SIGNING_KEY secret is empty or not set — will build DEBUG APK"
+            echo "No keystore available — will build debug APK"
           fi
         env:
           SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
-          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS_VAL: ${{ secrets.ANDROID_KEY_ALIAS }}
       - name: Build Android artifacts
         working-directory: ./frontend/android
         env:
           VERSION_CODE: ${{ needs.version.outputs.version_code }}
           VERSION_NAME: ${{ needs.version.outputs.version_name }}
           KEYSTORE_PATH: ${{ github.workspace }}/frontend/android/app/poketbook-release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'PoketBook@Secure2024' }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'poketbook' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'PoketBook@Secure2024' }}
         run: |
           if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "$KEYSTORE_PATH" ]; then
             echo "Signing secrets present — building signed Release AAB and APK"
