@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LangToggle } from "@/contexts/LangContext";
 import {
   LayoutDashboard, Users, BookOpen, Scale, FileText,
-  LogOut, ChevronDown, Menu, X, Settings,
+  LogOut, ChevronDown, Menu, X, Settings, Trash2,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 
@@ -14,6 +14,7 @@ const navItems = [
   { path: "/balance-sheet", label: "Balance Sheet", icon: Scale, testId: "balance-sheet" },
   { path: "/export", label: "Statement", icon: FileText, testId: "export" },
   { path: "/settings", label: "Settings", icon: Settings, testId: "settings" },
+  { path: "/recycle-bin", label: "Recycle Bin", icon: Trash2, testId: "recycle-bin" },
 ];
 
 // ── UserMenu — extracted sub-component (reduces Navbar complexity) ────────────

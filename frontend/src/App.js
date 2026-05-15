@@ -17,6 +17,7 @@ import BalanceSheet from "@/pages/BalanceSheet";
 import ExportPage from "@/pages/ExportPage";
 
 import SettingsPage from "@/pages/SettingsPage";
+import RecycleBinPage from "@/pages/RecycleBinPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
 
@@ -82,6 +83,7 @@ function AppInner() {
           <Route path="/balance-sheet" element={<ProtectedRoute><Layout><BalanceSheet /></Layout></ProtectedRoute>} />
           <Route path="/export" element={<ProtectedRoute><Layout><ExportPage /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
+          <Route path="/recycle-bin" element={<ProtectedRoute><Layout><RecycleBinPage /></Layout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

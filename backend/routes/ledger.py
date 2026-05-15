@@ -112,8 +112,9 @@ async def delete_party(party_id: str, current_user: dict = Depends(get_current_u
     )
     if unlocked > 0:
         raise HTTPException(status_code=400, detail=f"{unlocked} unlocked entries hain. Pehle Tally/Lock karein.")
-    # Soft delete
-    await db.parties.update_one({"_id": ObjectId(party_id)}, {"$set": {"is_deleted": True, "updated_at": datetime.now(timezone.utc)}})
+    # Soft delete with timestamp for recycle bin (auto-purge after 15 days)
+    now = datetime.now(timezone.utc)
+    await db.parties.update_one({"_id": ObjectId(party_id)}, {"$set": {"is_deleted": True, "deleted_at": now, "updated_at": now}})
     return {"message": "Party deleted successfully"}
 
 # ─── Ledger Routes ────────────────────────────────────────────────────────────
@@ -235,7 +236,7 @@ async def delete_ledger_entry(party_id: str, entry_id: str, current_user: dict =
     if e.get("is_locked"):
         raise HTTPException(status_code=403, detail="Locked entry delete nahi ho sakti")
     now = datetime.now(timezone.utc)
-    await db.ledger_entries.update_one({"_id": ObjectId(entry_id)}, {"$set": {"is_deleted": True, "updated_at": now}})
+    await db.ledger_entries.update_one({"_id": ObjectId(entry_id)}, {"$set": {"is_deleted": True, "deleted_at": now, "updated_at": now}})
     await recalculate_balances(party_id)
     # Also delete the mirrored entry (same transaction_id)
     txn_id = e.get("transaction_id")
@@ -244,7 +245,7 @@ async def delete_ledger_entry(party_id: str, entry_id: str, current_user: dict =
             {"transaction_id": txn_id, "party_id": {"$ne": party_id}, "is_deleted": {"$ne": True}}
         )
         if mirror and not mirror.get("is_locked"):
-            await db.ledger_entries.update_one({"_id": mirror["_id"]}, {"$set": {"is_deleted": True, "updated_at": now}})
+            await db.ledger_entries.update_one({"_id": mirror["_id"]}, {"$set": {"is_deleted": True, "deleted_at": now, "updated_at": now}})
             await recalculate_balances(mirror["party_id"])
     return {"message": "Entry deleted successfully (both sides)"}
 
@@ -416,3 +417,73 @@ def _build_excel_ledger(party_name: str, date_range: str, entries: list, cp_map:
 
 # ─── Export Routes (simplified using helpers above) ───────────────────────────
 
+
+# ─── Recycle Bin (15-day soft-delete recovery) ───────────────────────────────
+
+@router.get("/recycle-bin")
+async def get_recycle_bin(current_user: dict = Depends(get_current_user)):
+    """Return soft-deleted parties + entries within the 15-day recovery window."""
+    uid = current_user["_id"]
+    cutoff = datetime.now(timezone.utc) - timedelta(days=15)
+
+    # Deleted parties
+    del_parties = await db.parties.find({
+        "user_id": uid, "is_deleted": True,
+        "deleted_at": {"$gte": cutoff}
+    }).to_list(None)
+
+    # Deleted ledger entries (via their party)
+    party_ids = [str(p["_id"]) for p in await db.parties.find({"user_id": uid}).to_list(None)]
+    del_entries = await db.ledger_entries.find({
+        "party_id": {"$in": party_ids}, "is_deleted": True,
+        "deleted_at": {"$gte": cutoff}
+    }).to_list(None)
+
+    cp_ids = list({e.get("counterparty_id") for e in del_entries if e.get("counterparty_id")})
+    cp_map = {}
+    if cp_ids:
+        cps = await db.parties.find({"_id": {"$in": [ObjectId(c) for c in cp_ids]}}).to_list(None)
+        cp_map = {str(c["_id"]): c["name"] for c in cps}
+
+    def days_left(doc):
+        da = doc.get("deleted_at")
+        if not da: return 15
+        if da.tzinfo is None: da = da.replace(tzinfo=timezone.utc)
+        return max(0, 15 - (datetime.now(timezone.utc) - da).days)
+
+    return {
+        "parties": [{
+            "id": str(p["_id"]), "name": p["name"],
+            "mobile": p.get("mobile", ""), "address": p.get("address", ""),
+            "deleted_at": _fmt_dt(p.get("deleted_at")),
+            "days_left": days_left(p)
+        } for p in del_parties],
+        "entries": [{
+            **format_entry(e),
+            "counterparty_name": cp_map.get(e.get("counterparty_id", ""), ""),
+            "deleted_at": _fmt_dt(e.get("deleted_at")),
+            "days_left": days_left(e)
+        } for e in del_entries]
+    }
+
+@router.post("/recycle-bin/restore/party/{party_id}")
+async def restore_party(party_id: str, current_user: dict = Depends(get_current_user)):
+    p = await db.parties.find_one({"_id": ObjectId(party_id), "user_id": current_user["_id"], "is_deleted": True})
+    if not p: raise HTTPException(404, "Party not found in recycle bin")
+    await db.parties.update_one({"_id": ObjectId(party_id)}, {"$set": {"is_deleted": False, "deleted_at": None}})
+    return {"message": f"{p['name']} restored successfully"}
+
+@router.post("/recycle-bin/restore/entry/{entry_id}")
+async def restore_entry(entry_id: str, current_user: dict = Depends(get_current_user)):
+    e = await db.ledger_entries.find_one({"_id": ObjectId(entry_id), "is_deleted": True})
+    if not e: raise HTTPException(404, "Entry not found in recycle bin")
+    await db.ledger_entries.update_one({"_id": ObjectId(entry_id)}, {"$set": {"is_deleted": False, "deleted_at": None}})
+    return {"message": "Entry restored successfully"}
+
+@router.delete("/recycle-bin/permanent/{item_type}/{item_id}")
+async def permanent_delete(item_type: str, item_id: str, current_user: dict = Depends(get_current_user)):
+    if item_type == "party":
+        await db.parties.delete_one({"_id": ObjectId(item_id), "user_id": current_user["_id"], "is_deleted": True})
+    elif item_type == "entry":
+        await db.ledger_entries.delete_one({"_id": ObjectId(item_id), "is_deleted": True})
+    return {"message": "Permanently deleted"}

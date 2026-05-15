@@ -429,30 +429,20 @@ const LedgerPage = () => {
         </div>
       </div>
 
-      {/* ── Control Bar — ONE balance display only (right side) ───────── */}
-      <div className="flex-shrink-0 bg-stone-100 border-b-2 border-stone-400 px-3 sm:px-4 py-2 flex items-center gap-3 sm:gap-4 flex-wrap">
+      {/* ── Control Bar ─────────────────────────────────────── */}
+      <div className="flex-shrink-0 bg-stone-100 border-b-2 border-stone-400 px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-4 flex-wrap">
 
-        {/* Toggles */}
-        <label className="flex items-center gap-1.5 text-sm sm:text-base font-semibold text-blue-800 cursor-pointer">
-          <input
-            type="checkbox"
-            className="w-3.5 h-3.5 sm:w-4 sm:h-4"
-            checked={showFullAccount}
-            onChange={(e) => setShowFullAccount(e.target.checked)}
-          />
-          <span className="hidden sm:inline">Show Full Account</span>
-          <span className="sm:hidden">Full</span>
-        </label>
-        <label className="flex items-center gap-1.5 text-sm sm:text-base font-semibold text-blue-800 cursor-pointer">
-          <input
-            type="checkbox"
-            className="w-3.5 h-3.5 sm:w-4 sm:h-4"
-            checked={!showFullAccount}
-            onChange={(e) => setShowFullAccount(!e.target.checked)}
-          />
-          <span className="hidden sm:inline">Only Entry Show</span>
-          <span className="sm:hidden">Only</span>
-        </label>
+        {/* Full/Only Toggle — compact pill toggle */}
+        <div className="flex items-center bg-stone-200 rounded-full p-0.5 gap-0">
+          <button
+            onClick={() => setShowFullAccount(true)}
+            className={`px-2.5 py-1 rounded-full text-xs sm:text-sm font-bold transition-all ${showFullAccount ? "bg-blue-700 text-white shadow" : "text-stone-600"}`}
+            data-testid="toggle-full">Full</button>
+          <button
+            onClick={() => setShowFullAccount(false)}
+            className={`px-2.5 py-1 rounded-full text-xs sm:text-sm font-bold transition-all ${!showFullAccount ? "bg-blue-700 text-white shadow" : "text-stone-600"}`}
+            data-testid="toggle-only">Only</button>
+        </div>
 
         {/* Party dropdown */}
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -470,7 +460,7 @@ const LedgerPage = () => {
 
         {/* Balance display — SINGLE location (right side) */}
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-sm sm:text-base font-bold text-stone-700">Balance:-</span>
+          <span className="text-xs sm:text-base font-bold text-stone-700"><span className="inline sm:hidden">Bal:-</span><span className="hidden sm:inline">Balance:-</span></span>
           <div className={`font-mono font-bold text-base sm:text-lg px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-stone-500 bg-white ${balInfo.color} whitespace-nowrap`} data-testid="current-balance-display">
             {selectedId ? balInfo.text : "0.00"}
           </div>
