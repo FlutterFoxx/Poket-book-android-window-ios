@@ -61,6 +61,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // CRITICAL: If returning from Google OAuth, skip /me check — AuthCallback handles it
+    if (window.location.hash?.includes('session_id=')) {
+      setLoading(false);
+      return;
+    }
     const token = getToken();
     if (!token) { setUser(false); setLoading(false); return; }
     api.get("/api/auth/me")

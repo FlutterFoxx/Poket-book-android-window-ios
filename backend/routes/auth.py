@@ -241,3 +241,63 @@ async def verify_otp_endpoint(data: PhoneVerifyOTP, response: Response):
     return {"id": user_id, "name": user.get("name"), "phone": phone,
             "access_token": access_token, "refresh_token": refresh_tok}
 
+
+# ─── Google OAuth via Emergent Auth ──────────────────────────────────────────
+
+@router.post("/auth/google")
+async def google_auth(request: Request, response: Response):
+    """Exchange Emergent Auth session_id for a PoketBook JWT token.
+    Playbook: session_id from frontend → call Emergent session-data → create/login user → return JWT.
+    """
+    import httpx
+    body = await request.json()
+    session_id = body.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+
+    # Call Emergent Auth session-data endpoint (server-side only)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": session_id}
+            )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid Google session")
+        gdata = resp.json()
+    except Exception as e:
+        logging.error(f"Google auth error: {e}")
+        raise HTTPException(status_code=401, detail="Google auth failed")
+
+    email = gdata.get("email", "").lower()
+    name = gdata.get("name", email.split("@")[0])
+    if not email:
+        raise HTTPException(status_code=400, detail="No email from Google")
+
+    now = datetime.now(timezone.utc)
+
+    # Find or create user
+    user = await db.users.find_one({"email": email})
+    if not user:
+        result = await db.users.insert_one({
+            "email": email, "name": name, "role": "user",
+            "password_hash": None,  # No password for Google users
+            "google_auth": True, "picture": gdata.get("picture"),
+            "created_at": now,
+            "subscription_type": "trial",
+            "subscription_started_at": now,
+            "subscription_expires_at": now + timedelta(days=7),
+            "subscription_is_active": True,
+        })
+        user_id = str(result.inserted_id)
+    else:
+        user_id = str(user["_id"])
+        # Update name/picture from Google
+        await db.users.update_one({"_id": user["_id"]}, {"$set": {"name": name, "picture": gdata.get("picture"), "google_auth": True}})
+
+    access_token = create_access_token(user_id, email)
+    refresh_token = create_refresh_token(user_id)
+    return {
+        "id": user_id, "email": email, "name": name, "role": user.get("role", "user") if user else "user",
+        "access_token": access_token, "refresh_token": refresh_token,
+    }

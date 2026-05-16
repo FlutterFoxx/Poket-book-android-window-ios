@@ -200,6 +200,7 @@ const LedgerPage = () => {
       playSaveSound();
       setFastEntry({ ...EMPTY_FAST, partyId: "", date: today() });
       fetchEntries(selectedId);
+      fetchParties(); // Refresh party balances in dropdown
       setTimeout(() => naamRef.current?.focus(), 100);
     } catch (err) { toast.error(err.response?.data?.detail || "Entry save nahi hui", { duration: 1500 }); }
     setSaving(false);
@@ -214,55 +215,66 @@ const LedgerPage = () => {
     }
   };
 
-  // AI natural language entry parser
+  // WhatsApp share with date range modal
   const [sharingPdf, setSharingPdf] = useState(false);
-  const handleWhatsAppShare = async () => {
-    if (!partyInfo || !selectedId || sharingPdf) return;
+  const [waModal, setWaModal] = useState(false);
+  const [waFrom, setWaFrom] = useState("");
+  const [waTo, setWaTo] = useState("");
+  const [waMode, setWaMode] = useState("latest"); // "latest" | "range"
+
+  const handleWhatsAppShare = () => {
+    if (!partyInfo || !selectedId) return;
+    // Default to last 7 days
+    const todayStr = today();
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+    setWaFrom(weekAgo); setWaTo(todayStr); setWaMode("latest");
+    setWaModal(true);
+  };
+
+  const handleWaSend = async () => {
+    setWaModal(false);
     setSharingPdf(true);
     const toastId = toast.loading("Generating PDF...");
     try {
       const BACKEND = process.env.REACT_APP_BACKEND_URL || "";
       const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token") || "";
+      const params = waMode === "range" && waFrom && waTo ? `?start_date=${waFrom}&end_date=${waTo}` : "";
 
-      // Retry up to 3 times with 2s delay between attempts
       let pdfBlob = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          const resp = await fetch(`${BACKEND}/api/export/ledger/${selectedId}/pdf`, {
+          const resp = await fetch(`${BACKEND}/api/export/ledger/${selectedId}/pdf${params}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           pdfBlob = await resp.blob();
-          if (pdfBlob.size < 100) throw new Error("PDF too small, likely empty");
-          break; // Success
+          if (pdfBlob.size < 100) throw new Error("PDF too small");
+          break;
         } catch (fetchErr) {
           if (attempt === 3) throw fetchErr;
-          toast.loading(`PDF failed, retrying (${attempt}/3)...`, { id: toastId });
           await new Promise(r => setTimeout(r, 2000));
         }
       }
 
-      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
+      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_${waTo}` : "Latest"}.pdf`;
       toast.dismiss(toastId);
 
-      // Try native share sheet (Android/iOS — user picks WhatsApp directly)
       const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
       if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
         await navigator.share({ title: fileName, files: [pdfFile] });
       } else {
-        // Desktop fallback: download + open WhatsApp
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement("a");
         a.href = url; a.download = fileName;
         document.body.appendChild(a); a.click();
         document.body.removeChild(a); URL.revokeObjectURL(url);
         const bal = balLabel(currentBalance);
-        const msg = `*PoketBook Statement — ${toTitleCase(partyInfo.name)}*\nBalance: *${bal.text}*\nEntries: ${entries.length}\n\n_poketbook.in_`;
+        const msg = `*PoketBook Statement — ${toTitleCase(partyInfo.name)}*\nBalance: *${bal.text}*\nPeriod: ${waMode === "range" ? `${waFrom} to ${waTo}` : "Latest entries"}\n\n_poketbook.in_`;
         window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
       }
     } catch (err) {
       toast.dismiss(toastId);
-      if (err?.name !== "AbortError") toast.error(`PDF failed: ${err.message || "try again"}`, { duration: 3000 });
+      if (err?.name !== "AbortError") toast.error(err.message || "PDF failed", { duration: 2500 });
     }
     setSharingPdf(false);
   };
@@ -950,6 +962,56 @@ const LedgerPage = () => {
                 <button onClick={() => setTallyConfirm(false)} className="flex-1 border-2 border-stone-400 text-stone-700 py-2 text-sm font-semibold bg-white hover:bg-stone-50 rounded" data-testid="tally-cancel-btn">Cancel</button>
                 <button onClick={handleTally} className="flex-1 text-white py-2 text-sm font-bold rounded" style={{ background: "var(--primary)" }} data-testid="tally-confirm-btn">Lock Karein</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── WhatsApp Date Range Modal ──────────────────────── */}
+      {waModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl" style={{ background: "#fff" }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ background: "#25D366" }}>
+              <p className="text-white font-bold text-base">Share Statement on WhatsApp</p>
+              <button onClick={() => setWaModal(false)} className="text-white/80 hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {/* Toggle: Latest / Custom Range */}
+              <div style={{ display: "flex", background: "#F3F4F6", borderRadius: "10px", padding: "3px" }}>
+                {[["latest", "Latest Entries"], ["range", "Custom Range"]].map(([val, label]) => (
+                  <button key={val} onClick={() => setWaMode(val)}
+                    style={{
+                      flex: 1, padding: "7px", borderRadius: "8px", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer",
+                      background: waMode === val ? "#25D366" : "transparent",
+                      color: waMode === val ? "#fff" : "#374151",
+                    }}>{label}</button>
+                ))}
+              </div>
+
+              {waMode === "range" && (
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs font-bold text-stone-600 block mb-1">From Date</label>
+                    <input type="date" value={waFrom} onChange={e => setWaFrom(e.target.value)}
+                      className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-stone-600 block mb-1">To Date</label>
+                    <input type="date" value={waTo} onChange={e => setWaTo(e.target.value)}
+                      className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+              )}
+
+              {waMode === "latest" && (
+                <p className="text-xs text-stone-500">Shares all entries for <strong>{toTitleCase(partyInfo?.name)}</strong> — last 7 days.</p>
+              )}
+
+              <button onClick={handleWaSend}
+                className="w-full py-3 rounded-xl text-white font-bold text-base"
+                style={{ background: "#25D366" }}>
+                Generate & Share PDF
+              </button>
             </div>
           </div>
         </div>

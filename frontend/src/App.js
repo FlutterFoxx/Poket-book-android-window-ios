@@ -1,8 +1,9 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth, api } from "@/contexts/AuthContext";
 import { LangProvider } from "@/contexts/LangContext";
 import { Toaster } from "sonner";
+import { useRef, useEffect } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Navbar from "@/components/Navbar";
 import { BottomNav } from "@/components/BottomNav";
@@ -16,12 +17,46 @@ import PartyManagement from "@/pages/PartyManagement";
 import LedgerPage from "@/pages/LedgerPage";
 import BalanceSheet from "@/pages/BalanceSheet";
 import ExportPage from "@/pages/ExportPage";
+import { useNavigate } from "react-router-dom";
 
 import SettingsPage from "@/pages/SettingsPage";
 import RecycleBinPage from "@/pages/RecycleBinPage";
 import DownloadPage from "@/pages/DownloadPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
+
+// Google Auth callback handler — processes session_id from URL fragment
+const AuthCallback = () => {
+  const hasProcessed = useRef(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
+  useEffect(() => {
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
+
+    const hash = window.location.hash;
+    const match = hash.match(/session_id=([^&]+)/);
+    if (!match) { navigate("/"); return; }
+
+    const session_id = match[1];
+    api.post("/api/auth/google", { session_id })
+      .then(res => {
+        login(res.data);
+        navigate("/");
+      })
+      .catch(() => navigate("/login"));
+  }, []); // eslint-disable-line
+
+  return (
+    <div className="flex h-screen items-center justify-center" style={{ background: "#0A0F1E" }}>
+      <div className="text-center">
+        <img src="/logo.png" alt="PoketBook" className="w-16 h-16 mx-auto mb-4 object-contain animate-bounce" />
+        <p className="text-white text-sm">Logging in with Google...</p>
+      </div>
+    </div>
+  );
+};
 
 const Layout = ({ children }) => (
   <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-page)" }}>
@@ -73,6 +108,8 @@ function AppInner() {
       <AuthProvider>
         <Toaster richColors position="top-right" duration={1500} />
         <Routes>
+          {/* Google OAuth callback — must be before other routes */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/how-to-use" element={<HowToUsePage />} />

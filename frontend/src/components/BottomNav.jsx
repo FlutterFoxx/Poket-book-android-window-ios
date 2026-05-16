@@ -9,10 +9,18 @@ const BOTTOM_ITEMS = [
   { path: "/recycle-bin", icon: Trash2, label: "Bin" },
 ];
 
+// Detect desktop/Electron — hide bottom nav on desktop
+const isDesktop = () => {
+  if (navigator.userAgent?.includes("Electron")) return true;
+  if (window.matchMedia?.("(min-width: 768px)")?.matches) return true;
+  return false;
+};
+
 export const BottomNav = () => {
   const { pathname } = useLocation();
+  if (isDesktop()) return null;
 
-  const isActive = (path) =>
+  const active = (path) =>
     pathname === path || (path === "/ledger" && pathname.startsWith("/ledger"));
 
   return (
@@ -30,7 +38,7 @@ export const BottomNav = () => {
       data-testid="bottom-nav"
     >
       {BOTTOM_ITEMS.map(({ path, icon: Icon, label }) => {
-        const active = isActive(path);
+        const active = active(path);
         return (
           <Link
             key={path}
