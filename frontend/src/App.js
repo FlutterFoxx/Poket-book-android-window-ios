@@ -132,6 +132,8 @@ function AppInner() {
   );
 }
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 export default function App() {
-  return <LangProvider><AppInner /></LangProvider>;
+  return <ErrorBoundary><LangProvider><AppInner /></LangProvider></ErrorBoundary>;
 }

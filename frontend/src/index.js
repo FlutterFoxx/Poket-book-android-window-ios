@@ -6,11 +6,23 @@ import App from './App';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 
-// Register Service Worker for offline support & faster repeat loads
+// Service Worker — safe registration with stale-cache protection
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
-      .then(() => console.log('SW registered'))
+      .then(reg => {
+        // Force update check on every load to prevent stale cache white screens
+        reg.update();
+      })
       .catch(() => {});
+
+    // If SW causes issues (stale cache), expose emergency clear function
+    window.__clearSWCache = async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+      window.location.reload(true);
+    };
   });
 }
