@@ -28,8 +28,10 @@ const TRANSLATIONS = {
 const LangContext = createContext({ lang: "en", t: TRANSLATIONS.en, setLang: () => {} });
 
 export const LangProvider = ({ children }) => {
-  const [lang, setLang] = useState(() => localStorage.getItem("pk_lang") || "en");
-  const switchLang = (l) => { localStorage.setItem("pk_lang", l); setLang(l); };
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem("pk_lang") || "en"; } catch { return "en"; }
+  });
+  const switchLang = (l) => { try { localStorage.setItem("pk_lang", l); } catch {} setLang(l); };
   return (
     <LangContext.Provider value={{ lang, t: TRANSLATIONS[lang] || TRANSLATIONS.en, setLang: switchLang }}>
       {children}

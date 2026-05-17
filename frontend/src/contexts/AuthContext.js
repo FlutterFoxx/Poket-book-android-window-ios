@@ -6,16 +6,13 @@ const BASE = process.env.REACT_APP_BACKEND_URL;
 // ── Token storage — localStorage for persistence across app restarts ─────────
 // Mobile/desktop apps need tokens to survive close/reopen (15+ day sessions).
 // localStorage persists indefinitely; tokens have 7-day expiry built in.
-const getToken = () => localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
-const setToken = (t) => {
-  if (t) { localStorage.setItem("access_token", t); sessionStorage.setItem("access_token", t); }
-  else { localStorage.removeItem("access_token"); sessionStorage.removeItem("access_token"); }
-};
-const setRefreshToken = (t) => {
-  if (t) { localStorage.setItem("refresh_token", t); sessionStorage.setItem("refresh_token", t); }
-  else { localStorage.removeItem("refresh_token"); sessionStorage.removeItem("refresh_token"); }
-};
-const getRefreshToken = () => localStorage.getItem("refresh_token") || sessionStorage.getItem("refresh_token");
+// Safe storage helpers — handle restricted storage environments (Capacitor, etc.)
+const safeGet = (key) => { try { return localStorage.getItem(key) || sessionStorage.getItem(key); } catch { return null; } };
+const safeSet = (key, val) => { try { if (val) { localStorage.setItem(key, val); sessionStorage.setItem(key, val); } else { localStorage.removeItem(key); sessionStorage.removeItem(key); } } catch {} };
+const getToken = () => safeGet("access_token");
+const setToken = (t) => safeSet("access_token", t);
+const setRefreshToken = (t) => safeSet("refresh_token", t);
+const getRefreshToken = () => safeGet("refresh_token");
 
 export const api = axios.create({ baseURL: BASE });
 

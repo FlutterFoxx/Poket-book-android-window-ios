@@ -11,8 +11,10 @@ const BOTTOM_ITEMS = [
 
 // Detect desktop/Electron — hide bottom nav on desktop
 const isDesktop = () => {
-  if (navigator.userAgent?.includes("Electron")) return true;
-  if (window.matchMedia?.("(min-width: 768px)")?.matches) return true;
+  try {
+    if (typeof navigator !== "undefined" && navigator.userAgent?.includes("Electron")) return true;
+    if (typeof window !== "undefined" && window.matchMedia?.("(min-width: 768px)")?.matches) return true;
+  } catch { return false; }
   return false;
 };
 
