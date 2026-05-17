@@ -1,12 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, BookOpen, Scale, Trash2 } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, Scale, FileText } from "lucide-react";
 
 const BOTTOM_ITEMS = [
   { path: "/", icon: LayoutDashboard, label: "Home" },
   { path: "/parties", icon: Users, label: "Parties" },
   { path: "/ledger", icon: BookOpen, label: "Ledger" },
   { path: "/balance-sheet", icon: Scale, label: "Sheet" },
-  { path: "/recycle-bin", icon: Trash2, label: "Bin" },
+  { path: "/export", icon: FileText, label: "Statement" },
 ];
 
 // Detect desktop/Electron — hide bottom nav on desktop
