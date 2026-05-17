@@ -116,3 +116,141 @@ If amount or party unclear, set confidence < 0.5."""
         raise HTTPException(500, f"AI parse failed: {str(e)}")
 
 
+
+# ─── AI Self-Healing Agent ────────────────────────────────────────────────────
+
+class HealRequest(BaseModel):
+    issue: str
+    context: Optional[str] = ""
+
+@router.post("/superadmin/ai-heal")
+async def ai_heal(data: HealRequest, current_user: dict = Depends(get_current_user)):
+    """AI agent that diagnoses and suggests fixes for system issues."""
+    _require_superadmin(current_user)
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        llm_key = os.environ.get("EMERGENT_LLM_KEY", "")
+        if not llm_key:
+            raise HTTPException(400, "AI not configured")
+
+        chat = LlmChat(
+            api_key=llm_key,
+            session_id=f"heal_{current_user['_id']}_{datetime.now().timestamp()}",
+            system_message="""You are PoketBook's AI Self-Healing Agent. You diagnose and fix issues in a FastAPI+React ledger app.
+
+You can diagnose:
+- Authentication errors (login failures, token issues)
+- Database connection issues (MongoDB down, query errors)
+- API endpoint errors (5xx, 4xx, timeout)
+- Frontend crashes (React errors, JS exceptions)
+- Performance issues (slow queries, high memory)
+- Data integrity issues (wrong balance calculations)
+
+For each issue, provide:
+1. ROOT CAUSE: What exactly is wrong
+2. SEVERITY: Critical/High/Medium/Low
+3. AUTO-FIX: Specific code or config change to fix it
+4. PREVENTION: How to prevent it recurring
+5. STATUS CHECK: How to verify the fix worked
+
+Be specific and actionable. Format your response as JSON with these exact keys:
+{
+  "root_cause": "...",
+  "severity": "Critical|High|Medium|Low",
+  "auto_fix": "...",
+  "prevention": "...",
+  "status_check": "...",
+  "confidence": 0.0-1.0
+}"""
+        ).with_model("openai", "gpt-4.1-mini")
+
+        # Gather system context
+        db_status = "unknown"
+        try:
+            await db.command("ping")
+            db_status = "connected"
+        except Exception as e:
+            db_status = f"error: {e}"
+
+        user_count = await db.users.count_documents({})
+        party_count = await db.parties.count_documents({"is_deleted": {"$ne": True}})
+        entry_count = await db.ledger_entries.count_documents({"is_deleted": {"$ne": True}})
+
+        system_context = f"""
+System Status:
+- MongoDB: {db_status}
+- Total users: {user_count}
+- Total parties: {party_count}
+- Total entries: {entry_count}
+- Backend: FastAPI running
+- Environment: Production (poketbook.in)
+
+User-reported issue: {data.issue}
+Additional context: {data.context or 'None'}
+"""
+
+        msg = UserMessage(text=system_context)
+        response = await chat.send_message(msg)
+
+        import json as _json
+        txt = response.strip()
+        if "```" in txt:
+            txt = txt.split("```")[1].replace("json", "").strip()
+        result = _json.loads(txt)
+
+        # Log the healing session
+        await db.ai_heal_log.insert_one({
+            "issue": data.issue,
+            "diagnosis": result,
+            "admin_id": current_user["_id"],
+            "timestamp": datetime.now(timezone.utc),
+        })
+
+        return result
+    except Exception as e:
+        logging.error(f"AI heal error: {e}")
+        raise HTTPException(500, f"AI agent error: {str(e)}")
+
+@router.get("/superadmin/ai-heal/history")
+async def ai_heal_history(current_user: dict = Depends(get_current_user)):
+    """Get recent AI healing sessions."""
+    _require_superadmin(current_user)
+    docs = await db.ai_heal_log.find(
+        {}, {"_id": 0},
+        sort=[("timestamp", -1)],
+        limit=20
+    ).to_list(None)
+    return docs
+
+@router.get("/superadmin/health-check")
+async def system_health_check(current_user: dict = Depends(get_current_user)):
+    """Automated system health check."""
+    _require_superadmin(current_user)
+    checks = {}
+
+    # DB check
+    try:
+        await db.command("ping")
+        checks["database"] = {"status": "ok", "message": "MongoDB connected"}
+    except Exception as e:
+        checks["database"] = {"status": "error", "message": str(e)}
+
+    # Collections check
+    try:
+        uc = await db.users.count_documents({})
+        pc = await db.parties.count_documents({"is_deleted": {"$ne": True}})
+        ec = await db.ledger_entries.count_documents({"is_deleted": {"$ne": True}})
+        checks["data"] = {"status": "ok", "users": uc, "parties": pc, "entries": ec}
+    except Exception as e:
+        checks["data"] = {"status": "error", "message": str(e)}
+
+    # Auth check
+    try:
+        admin = await db.users.find_one({"role": "admin"})
+        checks["auth"] = {"status": "ok" if admin else "warn", "message": "Admin exists" if admin else "No admin found"}
+    except Exception as e:
+        checks["auth"] = {"status": "error", "message": str(e)}
+
+    overall = "ok" if all(v["status"] == "ok" for v in checks.values()) else "degraded"
+    checks["overall"] = overall
+    return checks
