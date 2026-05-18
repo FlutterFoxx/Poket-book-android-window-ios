@@ -40,7 +40,7 @@ export const BottomNav = () => {
       data-testid="bottom-nav"
     >
       {BOTTOM_ITEMS.map(({ path, icon: Icon, label }) => {
-        const active = active(path);
+        const isActive = active(path);
         return (
           <Link
             key={path}
@@ -52,17 +52,17 @@ export const BottomNav = () => {
               alignItems: "center",
               justifyContent: "center",
               padding: "8px 4px 6px",
-              color: active ? "#4ade80" : "rgba(255,255,255,0.55)",
+              color: isActive ? "#4ade80" : "rgba(255,255,255,0.55)",
               textDecoration: "none",
               transition: "color 0.15s",
               minWidth: 0,
             }}
           >
             <Icon size={20} style={{ marginBottom: "2px" }} />
-            <span style={{ fontSize: "10px", fontWeight: active ? 700 : 500, letterSpacing: "0.2px" }}>
+            <span style={{ fontSize: "10px", fontWeight: isActive ? 700 : 500, letterSpacing: "0.2px" }}>
               {label}
             </span>
-            {active && (
+            {isActive && (
               <div style={{ width: "18px", height: "3px", background: "#4ade80", borderRadius: "2px", marginTop: "2px" }} />
             )}
           </Link>
