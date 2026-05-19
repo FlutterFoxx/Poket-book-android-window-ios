@@ -236,25 +236,11 @@ const LedgerPage = () => {
     setSharingPdf(true);
     const toastId = toast.loading("Generating PDF...");
     try {
-      const BACKEND = process.env.REACT_APP_BACKEND_URL || "";
-      const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token") || "";
       const params = waMode === "range" && waFrom && waTo ? `?start_date=${waFrom}&end_date=${waTo}` : "";
-
-      let pdfBlob = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const resp = await fetch(`${BACKEND}/api/export/ledger/${selectedId}/pdf${params}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          pdfBlob = await resp.blob();
-          if (pdfBlob.size < 100) throw new Error("PDF too small");
-          break;
-        } catch (fetchErr) {
-          if (attempt === 3) throw fetchErr;
-          await new Promise(r => setTimeout(r, 2000));
-        }
-      }
+      // Use api axios instance — handles auth token and base URL automatically
+      const res = await api.get(`/api/export/ledger/${selectedId}/pdf${params}`, { responseType: "blob" });
+      const pdfBlob = res.data;
+      if (!pdfBlob || pdfBlob.size < 100) throw new Error("PDF generation failed");
 
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_${waTo}` : "Latest"}.pdf`;
       toast.dismiss(toastId);
@@ -311,80 +297,24 @@ const LedgerPage = () => {
     } catch (err) { toast.error(err.response?.data?.detail || "Lock nahi hua"); }
   };
 
-  // Direct browser print — uses Blob URL (avoids XSS from document.write)
-  const handlePrint = () => {
-    if (!partyInfo) return;
-    const balText = balInfo.text;
-    const rows = entries.map((e, i) => {
-      const bal = e.balance;
-      const balStr = bal > 0
-        ? `${Math.abs(bal).toLocaleString("en-IN", { minimumFractionDigits: 2 })} लेने`
-        : bal < 0
-        ? `${Math.abs(bal).toLocaleString("en-IN", { minimumFractionDigits: 2 })} देने`
-        : "0.00 बराबर";
-      return `<tr style="background:${i % 2 === 0 ? "#FFE8CC" : "#FFDAB0"}">
-        <td>${i + 1}</td>
-        <td>${e.date}</td>
-        <td style="color:#1e40af;font-weight:600">${e.counterparty_name || "—"}</td>
-        <td style="text-align:right;color:#991b1b;font-weight:700">${e.naam > 0 ? e.naam.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}</td>
-        <td style="text-align:right;color:#14532d;font-weight:700">${e.jama > 0 ? e.jama.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}</td>
-        <td>${e.narration || ""}</td>
-        <td style="text-align:right;font-weight:700;color:${bal >= 0 ? "#1e40af" : "#991b1b"}">${balStr}</td>
-        <td style="text-align:center">${e.is_locked ? "★" : ""}</td>
-      </tr>`;
-    }).join("");
-    const totalNaam = entries.reduce((s, e) => s + (e.naam || 0), 0);
-    const totalJama = entries.reduce((s, e) => s + (e.jama || 0), 0);
-    const html = `<!DOCTYPE html><html><head><title>Ledger - ${partyInfo.name}</title>
-<meta charset="utf-8">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 12px; padding: 16px; color: #1c1917; }
-  .header { background: #b91c1c; color: white; padding: 10px 14px; border-radius: 4px; margin-bottom: 10px; }
-  .header h1 { font-size: 16px; font-weight: bold; }
-  .header p { font-size: 11px; opacity: 0.9; margin-top: 3px; }
-  .balance-badge { display:inline-block; background:#166534; color:white; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:13px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th { background: #8B4513; color: white; padding: 6px 8px; text-align: left; font-size: 11px; }
-  th.right { text-align: right; }
-  td { padding: 5px 8px; border-bottom: 1px solid #f0d9b5; font-size: 11px; }
-  .tfoot-row td { background: #8B4513; color: white; font-weight: bold; }
-  @page { margin: 1.5cm; size: A4 landscape; }
-  @media print { button { display: none !important; } }
-</style></head><body>
-<div class="header">
-  <h1>Settling Entry / Ledger — ${partyInfo.name}</h1>
-  <p>Mobile: ${partyInfo.mobile || "—"} &nbsp;|&nbsp; Address: ${partyInfo.address || "—"} &nbsp;|&nbsp; Total Entries: ${entries.length}</p>
-  <p style="margin-top:6px">Balance: <span class="balance-badge">${balText}</span></p>
-</div>
-<table>
-  <thead>
-    <tr>
-      <th style="width:36px">Sr.</th><th>Date</th><th>Party Name</th>
-      <th class="right">Credit (नाम)</th><th class="right">Debit (जमा)</th>
-      <th>Narration</th><th class="right">Balance</th><th style="text-align:center">Tally</th>
-    </tr>
-  </thead>
-  <tbody>${rows}</tbody>
-  <tfoot>
-    <tr class="tfoot-row">
-      <td colspan="3">Total</td>
-      <td style="text-align:right">${totalNaam.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-      <td style="text-align:right">${totalJama.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-      <td colspan="2" style="text-align:right">Closing: ${balText}</td>
-      <td></td>
-    </tr>
-  </tfoot>
-</table>
-</body></html>`;
-    // Use Blob URL instead of document.write to prevent XSS
-    const blob = new Blob([html], { type: "text/html; charset=utf-8" });
-    const blobUrl = URL.createObjectURL(blob);
-    const printWin = window.open(blobUrl, "_blank", "width=900,height=600");
-    if (printWin) {
-      printWin.addEventListener("load", () => {
-        setTimeout(() => { printWin.print(); URL.revokeObjectURL(blobUrl); }, 500);
-      });
+  // Download PDF from backend (branded, with branding)
+  const handlePrint = async () => {
+    if (!partyInfo || !selectedId) return;
+    const toastId = toast.loading("Generating PDF...");
+    try {
+      const res = await api.get(`/api/export/ledger/${selectedId}/pdf`, { responseType: "blob" });
+      const blob = res.data;
+      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast.dismiss(toastId);
+      toast.success("PDF downloaded!", { duration: 1500 });
+    } catch {
+      toast.dismiss(toastId);
+      toast.error("PDF generation failed", { duration: 2000 });
     }
   };
 

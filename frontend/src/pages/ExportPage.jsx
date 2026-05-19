@@ -394,51 +394,27 @@ const StatementPage = () => {
   };
 
   // Print the current preview
-  const handlePrintPreview = () => {
-    if (!preview) { toast.error("Preview load karein pehle"); return; }
-    const rows = preview.entries.map((e, i) => {
-      const bl = balLabel(e.balance);
-      return `<tr style="background:${i%2===0?"#FFE8CC":"#FFDAB0"}">
-        <td>${e.date}</td>
-        <td style="color:#1e40af;font-weight:600">${toTitleCase(e.counterparty_name || "—")}</td>
-        <td style="text-align:right;color:#991b1b;font-weight:700">${e.naam > 0 ? fmt(e.naam) : ""}</td>
-        <td style="text-align:right;color:#14532d;font-weight:700">${e.jama > 0 ? fmt(e.jama) : ""}</td>
-        <td>${e.narration || ""}</td>
-        <td style="text-align:right;font-weight:700;color:${e.balance>0?"#b91c1c":"#1e40af"}">${bl.text}</td>
-      </tr>`;
-    }).join("");
-    const html = `<!DOCTYPE html><html><head><title>Statement - ${toTitleCase(preview.party?.name || "")}</title>
-<meta charset="utf-8">
-<style>
-  body{font-family:Arial,sans-serif;font-size:12px;padding:16px;}
-  .hdr{background:#b91c1c;color:white;padding:10px 14px;border-radius:4px;margin-bottom:10px;}
-  .hdr h1{font-size:16px;font-weight:bold;} .hdr p{font-size:11px;margin-top:3px;}
-  table{width:100%;border-collapse:collapse;margin-top:8px;}
-  th{background:#8B4513;color:white;padding:6px 8px;text-align:left;font-size:11px;}
-  td{padding:5px 8px;border-bottom:1px solid #f0d9b5;font-size:11px;}
-  @page{margin:1.5cm;size:A4 landscape;}@media print{button{display:none!important;}}
-</style></head><body>
-<div class="hdr">
-  <h1>Statement — ${toTitleCase(preview.party?.name || "")}</h1>
-  <p>Period: ${dateFrom || "All"} to ${dateTo || "Today"} | Total Entries: ${preview.entries.length}</p>
-</div>
-<table><thead><tr>
-  <th>Date</th><th>Party Name</th><th style="text-align:right">Credit (नाम)</th>
-  <th style="text-align:right">Debit (जमा)</th><th>Narration</th><th style="text-align:right">Balance</th>
-</tr></thead><tbody>${rows}</tbody>
-<tfoot><tr style="background:#8B4513;color:white;font-weight:bold;">
-  <td colspan="2">Total</td>
-  <td style="text-align:right">${fmt(preview.entries.reduce((s,e)=>s+(e.naam||0),0))}</td>
-  <td style="text-align:right">${fmt(preview.entries.reduce((s,e)=>s+(e.jama||0),0))}</td>
-  <td></td>
-  <td style="text-align:right">${balLabel(preview.current_balance).text}</td>
-</tr></tfoot></table>
-</body></html>`;
-    const blob = new Blob([html], { type: "text/html; charset=utf-8" });
-    const blobUrl = URL.createObjectURL(blob);
-    const w = window.open(blobUrl, "_blank", "width=900,height=600");
-    if (w) {
-      w.addEventListener("load", () => { setTimeout(() => { w.print(); URL.revokeObjectURL(blobUrl); }, 500); });
+  const handlePrintPreview = async () => {
+    if (!selectedParty) { toast.error("Party chunein pehle"); return; }
+    const toastId = toast.loading("Generating PDF...");
+    try {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("start_date", dateFrom);
+      if (dateTo) params.set("end_date", dateTo);
+      const query = params.toString() ? `?${params}` : "";
+      const res = await api.get(`/api/export/ledger/${selectedParty}/pdf${query}`, { responseType: "blob" });
+      const partyName = preview?.party?.name || "Statement";
+      const fileName = `PoketBook_${toTitleCase(partyName)}_Statement.pdf`;
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast.dismiss(toastId);
+      toast.success("PDF downloaded!", { duration: 1500 });
+    } catch {
+      toast.dismiss(toastId);
+      toast.error("PDF generation failed", { duration: 2000 });
     }
   };
 
