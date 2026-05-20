@@ -352,7 +352,8 @@ const StatementPage = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
       toast.success("Statement download ho rahi hai");
-    } catch {
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") console.error("Export download failed:", err);
       toast.error("Download nahi hua — please retry");
     }
     setDownloading(null);
@@ -412,8 +413,9 @@ const StatementPage = () => {
       document.body.removeChild(a); URL.revokeObjectURL(url);
       toast.dismiss(toastId);
       toast.success("PDF downloaded!", { duration: 1500 });
-    } catch {
+    } catch (err) {
       toast.dismiss(toastId);
+      if (process.env.NODE_ENV === "development") console.error("Print PDF failed:", err);
       toast.error("PDF generation failed", { duration: 2000 });
     }
   };

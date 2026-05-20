@@ -126,7 +126,8 @@ const LedgerPage = () => {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchParties(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchParties is stable (useCallback with [])
+  useEffect(() => { fetchParties(); }, [fetchParties]);
   useEffect(() => { if (urlPartyId) setSelectedId(urlPartyId); }, [urlPartyId]);
   useEffect(() => { if (selectedId) { fetchEntries(selectedId); setVisibleCount(80); } }, [selectedId, fetchEntries]);
   useEffect(() => { setFastEntry(p => ({ ...p, partyId: "" })); }, [selectedId]);
@@ -312,8 +313,9 @@ const LedgerPage = () => {
       document.body.removeChild(a); URL.revokeObjectURL(url);
       toast.dismiss(toastId);
       toast.success("PDF downloaded!", { duration: 1500 });
-    } catch {
+    } catch (err) {
       toast.dismiss(toastId);
+      if (process.env.NODE_ENV === "development") console.error("PDF download failed:", err);
       toast.error("PDF generation failed", { duration: 2000 });
     }
   };

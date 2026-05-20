@@ -16,7 +16,10 @@ export default function RecycleBinPage() {
     try {
       const res = await api.get("/api/recycle-bin");
       setData(res.data);
-    } catch { toast.error("Could not load recycle bin"); }
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") console.error("Recycle bin load failed:", err);
+      toast.error("Could not load recycle bin");
+    }
     setLoading(false);
   }, []);
 

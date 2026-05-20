@@ -24,7 +24,10 @@ const AIHealPanel = () => {
     try {
       const res = await api.get("/api/superadmin/health-check");
       setHealth(res.data);
-    } catch { toast.error("Health check failed"); }
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") console.error("Health check failed:", err);
+      toast.error("Health check failed");
+    }
     setHealthLoading(false);
   }, []);
 
@@ -34,7 +37,9 @@ const AIHealPanel = () => {
     try {
       const res = await api.get("/api/superadmin/ai-heal/history");
       setHistory(res.data);
-    } catch {}
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") console.error("History load failed:", err);
+    }
   };
 
   const diagnose = async () => {
@@ -155,7 +160,7 @@ const AIHealPanel = () => {
           ) : (
             <div className="space-y-3">
               {history.map((h, i) => (
-                <div key={i} className="rounded-lg p-3 border border-white/5" style={{ background: "#1E293B" }}>
+                <div key={h.timestamp || `heal-${i}`} className="rounded-lg p-3 border border-white/5" style={{ background: "#1E293B" }}>
                   <div className="flex items-start justify-between mb-1">
                     <p className="text-sm text-white font-medium">{h.issue}</p>
                     <span className="text-xs text-gray-500 ml-2 flex-shrink-0">{new Date(h.timestamp).toLocaleDateString("en-IN")}</span>

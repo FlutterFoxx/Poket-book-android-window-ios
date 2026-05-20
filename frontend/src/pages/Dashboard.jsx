@@ -232,7 +232,7 @@ const Dashboard = () => {
 
           {loading ? (
             Array(3).fill(0).map((_, i) => (
-              <div key={i} className="pk-card" style={{ height: "70px", marginBottom: "10px", background: "var(--border-light)" }} />
+              <div key={`skeleton-party-${i}`} className="pk-card" style={{ height: "70px", marginBottom: "10px", background: "var(--border-light)" }} />
             ))
           ) : parties.length === 0 ? (
             <div className="pk-card" style={{ textAlign: "center", padding: "32px 16px" }}>

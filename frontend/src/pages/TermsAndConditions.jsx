@@ -5,6 +5,7 @@ import { ArrowLeft, FileText } from "lucide-react";
 const LOGO = "/logo.png";
 
 export default function TermsAndConditions() {
+  // Run once on mount — intentional empty deps
   useEffect(() => {
     document.title = "Terms & Conditions — PoketBook | poketbook.in";
   }, []);

@@ -30,10 +30,9 @@ const PartyManagement = () => {
       toast.error("Parties load nahi hui");
     }
     setLoading(false);
-  }, []); // api and state setters are stable — intentional empty deps
+  }, []); // api and state setters are stable refs — intentional empty deps
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadParties(); }, []);
+  useEffect(() => { loadParties(); }, [loadParties]); // loadParties is stable (useCallback with [])
   useEffect(() => { if (showForm) setTimeout(() => nameRef.current?.focus(), 100); }, [showForm]);
 
   const openAdd  = () => { setEditParty(null); setFormData(EMPTY); setShowForm(true); };

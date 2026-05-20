@@ -5,6 +5,7 @@ import { ArrowLeft, Shield } from "lucide-react";
 const LOGO = "/logo.png";
 
 export default function PrivacyPolicy() {
+  // Run once on mount to set page title — intentional empty deps
   useEffect(() => {
     document.title = "Privacy Policy — PoketBook | poketbook.in";
     const meta = document.querySelector('meta[name="description"]');
