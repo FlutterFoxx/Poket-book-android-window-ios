@@ -254,3 +254,78 @@ async def system_health_check(current_user: dict = Depends(get_current_user)):
     overall = "ok" if all(v["status"] == "ok" for v in checks.values()) else "degraded"
     checks["overall"] = overall
     return checks
+
+# ─── Feature Consistency Audit ────────────────────────────────────────────────
+
+@router.get("/superadmin/feature-audit")
+async def feature_audit(current_user: dict = Depends(get_current_user)):
+    """Audit users for missing subscription/feature data and auto-fix."""
+    _require_superadmin(current_user)
+    now = datetime.now(timezone.utc)
+    issues = []
+    fixed = 0
+
+    users = await db.users.find({}).to_list(None)
+    for u in users:
+        uid = u["_id"]
+        user_issues = []
+
+        # Check for missing subscription fields
+        if not u.get("subscription_type"):
+            user_issues.append("missing subscription_type")
+            await db.users.update_one({"_id": uid}, {"$set": {
+                "subscription_type": "trial",
+                "subscription_started_at": now,
+                "subscription_expires_at": now + timedelta(days=7),
+            }})
+            fixed += 1
+
+        # Check for missing email_verified field (new security field)
+        if "email_verified" not in u:
+            # Existing users get verified=True (backward compatibility)
+            await db.users.update_one({"_id": uid}, {"$set": {"email_verified": True}})
+            user_issues.append("added email_verified=True (existing user)")
+            fixed += 1
+
+        # Check for missing created_at
+        if not u.get("created_at"):
+            await db.users.update_one({"_id": uid}, {"$set": {"created_at": now}})
+            user_issues.append("added missing created_at")
+            fixed += 1
+
+        if user_issues:
+            issues.append({
+                "user_id": str(uid),
+                "email": u.get("email", ""),
+                "issues": user_issues
+            })
+
+    return {
+        "total_users": len(users),
+        "users_with_issues": len(issues),
+        "fixes_applied": fixed,
+        "details": issues[:50],  # Cap at 50 for readability
+        "status": "ok" if not issues else "fixed"
+    }
+
+
+@router.get("/superadmin/security-audit")
+async def security_audit(current_user: dict = Depends(get_current_user)):
+    """Security audit: recent login attempts, suspicious activity."""
+    _require_superadmin(current_user)
+    # Recent failed logins
+    failed = await db.login_attempts.find(
+        {}, {"_id": 0}, sort=[("last_attempt", -1)], limit=20
+    ).to_list(None)
+    # Recent audit logs
+    audit = await db.audit_logs.find(
+        {}, {"_id": 0}, sort=[("timestamp", -1)], limit=50
+    ).to_list(None)
+    # Suspicious: IPs with high attempt count
+    suspicious = [a for a in failed if a.get("count", 0) >= 3]
+    return {
+        "failed_login_attempts": len(failed),
+        "suspicious_ips": suspicious,
+        "recent_security_events": audit[:20],
+    }
+

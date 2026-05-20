@@ -7,63 +7,89 @@ from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import uuid as uuid_lib
 from core import *
+from security import (
+    validate_email, validate_password_strength, check_password_legacy,
+    sanitize_name, sanitize_email,
+    check_rate_limit, record_failed_attempt, clear_rate_limit,
+    set_auth_cookies, audit_log,
+)
 
 router = APIRouter(prefix="/api")
 
 # ─── Auth Routes ──────────────────────────────────────────────────────────────
 
 @router.post("/auth/register")
-async def register(data: UserCreate, response: Response):
-    existing = await db.users.find_one({"email": data.email.lower()})
+async def register(data: UserCreate, response: Response, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    email = sanitize_email(data.email)
+
+    # Input validation
+    email_ok, email_err = validate_email(email)
+    if not email_ok:
+        raise HTTPException(status_code=422, detail=email_err)
+
+    # Password strength (new users get stricter rules)
+    pass_ok, pass_err = validate_password_strength(data.password)
+    if not pass_ok:
+        raise HTTPException(status_code=422, detail=pass_err)
+
+    name = sanitize_name(data.name or "")
+
+    existing = await db.users.find_one({"email": email})
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        # Don't reveal if email exists — return same message
+        await audit_log(db, "register_duplicate", None, ip, email=email)
+        raise HTTPException(status_code=400, detail="Registration failed. Please check your details.")
+
     now = datetime.now(timezone.utc)
     result = await db.users.insert_one({
-        "email": data.email.lower(),
+        "email": email,
         "password_hash": hash_password(data.password),
-        "name": data.name,
+        "name": name,
         "role": "user",
         "created_at": now,
-        # 7-day FREE trial on registration
+        "email_verified": False,  # Email verification support (gradual rollout)
         "subscription_type": "trial",
         "subscription_started_at": now,
         "subscription_expires_at": now + timedelta(days=7),
         "subscription_is_active": True,
     })
     user_id = str(result.inserted_id)
-    access_token = create_access_token(user_id, data.email.lower())
+    access_token = create_access_token(user_id, email)
     refresh_tok = create_refresh_token(user_id)
-    response.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="lax", max_age=1800, path="/")
-    response.set_cookie("refresh_token", refresh_tok, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
-    return {"id": user_id, "email": data.email.lower(), "name": data.name, "role": "user",
+    set_auth_cookies(response, access_token, refresh_tok)
+    await audit_log(db, "register_success", user_id, ip, email=email)
+    return {"id": user_id, "email": email, "name": name, "role": "user",
             "access_token": access_token, "refresh_token": refresh_tok}
 
 @router.post("/auth/login")
 async def login(data: UserLogin, response: Response, request: Request):
-    email = data.email.lower()
     ip = request.client.host if request.client else "unknown"
+    email = sanitize_email(data.email)
+
+    # Validate email format before any DB lookup
+    email_ok, _ = validate_email(email)
+    if not email_ok:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # Rate limiting (per account + global IP)
     identifier = f"{ip}:{email}"
-    attempt = await db.login_attempts.find_one({"identifier": identifier})
-    if attempt and attempt.get("count", 0) >= 5:
-        last = attempt.get("last_attempt")
-        if last:
-            last_aware = last if last.tzinfo else last.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) - last_aware < timedelta(minutes=15):
-                raise HTTPException(status_code=429, detail="Too many failed attempts. 15 minute baad try karein.")
+    await check_rate_limit(db, identifier, ip)
+
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(data.password, user.get("password_hash", "")):
-        await db.login_attempts.update_one(
-            {"identifier": identifier},
-            {"$inc": {"count": 1}, "$set": {"last_attempt": datetime.now(timezone.utc)}},
-            upsert=True,
-        )
+        await record_failed_attempt(db, identifier, ip)
+        await audit_log(db, "login_failed", None, ip, email=email,
+                        details={"reason": "invalid_credentials"})
+        # Always same message — prevents email enumeration
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    await db.login_attempts.delete_one({"identifier": identifier})
+
+    await clear_rate_limit(db, identifier)
     user_id = str(user["_id"])
     access_token = create_access_token(user_id, email)
     refresh_tok = create_refresh_token(user_id)
-    response.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="lax", max_age=1800, path="/")
-    response.set_cookie("refresh_token", refresh_tok, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    set_auth_cookies(response, access_token, refresh_tok)
+    await audit_log(db, "login_success", user_id, ip, email=email)
     return {"id": user_id, "email": email, "name": user.get("name"), "role": user.get("role", "user"),
             "access_token": access_token, "refresh_token": refresh_tok}
 
@@ -79,8 +105,10 @@ async def change_password(request: Request):
     body = await request.json()
     current_password = body.get("current_password", "")
     new_password = body.get("new_password", "")
-    if len(new_password) < 6:
-        raise HTTPException(400, "New password must be at least 6 characters")
+    # Use legacy check for existing users (backward compatible)
+    pass_ok, pass_err = check_password_legacy(new_password)
+    if not pass_ok:
+        raise HTTPException(400, pass_err)
     # Get user from token
     token = request.cookies.get("access_token")
     if not token:
@@ -169,7 +197,7 @@ async def refresh_token_endpoint(request: Request, response: Response):
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         access_token = create_access_token(str(user["_id"]), user["email"])
-        response.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="lax", max_age=1800, path="/")
+        set_auth_cookies(response, access_token, access_token)
         return {"message": "Token refreshed", "access_token": access_token}
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
@@ -236,8 +264,7 @@ async def verify_otp_endpoint(data: PhoneVerifyOTP, response: Response):
     user_id = str(user["_id"])
     access_token = create_access_token(user_id, phone)
     refresh_tok = create_refresh_token(user_id)
-    response.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="lax", max_age=1800, path="/")
-    response.set_cookie("refresh_token", refresh_tok, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    set_auth_cookies(response, access_token, access_token)
     return {"id": user_id, "name": user.get("name"), "phone": phone,
             "access_token": access_token, "refresh_token": refresh_tok}
 
