@@ -17,6 +17,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cra-template": "1.2.0",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^0.507.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -38,7 +39,7 @@
   "build": {
     "appId": "in.poketbook.desktop",
     "productName": "PoketBook",
-    "copyright": "Copyright \u00a9 2026 Flutter Fox",
+    "copyright": "Copyright © 2026 Flutter Fox",
     "directories": {
       "output": "dist-electron",
       "buildResources": "public"
@@ -118,7 +119,7 @@
     "email": "Solution@poketbook.in",
     "url": "https://flutterfox.in"
   },
-  "description": "PoketBook \u2014 Digital Udhar Khaata for Indian Businesses",
+  "description": "PoketBook — Digital Udhar Khaata for Indian Businesses",
   "repository": {
     "type": "git",
     "url": "https://github.com/flutterfoxin-sudo/poketbook-build-app.git"

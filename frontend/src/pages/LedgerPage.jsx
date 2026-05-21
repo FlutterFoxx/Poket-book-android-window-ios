@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
 import { toast } from "sonner";
-import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, MessageCircle } from "lucide-react";
+import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, MessageCircle, Camera } from "lucide-react";
 
 const EMPTY_FAST = { date: today(), partyId: "", naam: "", jama: "", narration: "" };
 
@@ -133,20 +133,72 @@ const LedgerPage = () => {
   useEffect(() => { setFastEntry(p => ({ ...p, partyId: "" })); }, [selectedId]);
 
   // F4 = edit most recent unlocked entry
+  // ── Global keyboard shortcuts ──────────────────────────────────────────────
   useEffect(() => {
-    const handleF4 = (e) => {
-      if (e.key === "F4") {
-        e.preventDefault();
-        const firstUnlocked = entries.find(en => !en.is_locked);
-        if (firstUnlocked) {
-          setEditEntry(firstUnlocked);
-          setEditForm({ date: firstUnlocked.date, naam: firstUnlocked.naam || "", jama: firstUnlocked.jama || "", narration: firstUnlocked.narration || "" });
-        } else { toast.error("Koi unlocked entry nahi hai edit karne ke liye"); }
+    const handleKeys = (e) => {
+      const tag = document.activeElement?.tagName;
+      const inInput = ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
+
+      switch (e.key) {
+        // F1 — Focus party selector (open party selection)
+        case "F1":
+          e.preventDefault();
+          partySelectRef.current?.focus();
+          break;
+
+        // F4 — Edit first unlocked entry
+        case "F4":
+          e.preventDefault();
+          const firstUnlocked = entries.find(en => !en.is_locked);
+          if (firstUnlocked) {
+            setEditEntry(firstUnlocked);
+            setEditForm({ date: firstUnlocked.date, naam: firstUnlocked.naam || "", jama: firstUnlocked.jama || "", narration: firstUnlocked.narration || "" });
+          } else { toast.error("Koi unlocked entry nahi hai edit karne ke liye"); }
+          break;
+
+        // F5 — Tally/Finalize (lock all unlocked entries)
+        case "F5":
+          e.preventDefault();
+          if (unlocked > 0) setTallyConfirm(true);
+          else toast.info("Sab entries already locked hain");
+          break;
+
+        // ESC — Close any open modal
+        case "Escape":
+          if (editEntry) { setEditEntry(null); setEditForm({}); }
+          if (deleteEntry) setDeleteEntry(null);
+          if (tallyConfirm) setTallyConfirm(false);
+          if (waModal) setWaModal(false);
+          break;
+
+        // Arrow down — focus next form field (only when in a form input)
+        case "ArrowDown":
+          if (inInput) {
+            e.preventDefault();
+            const fields = [partySelectRef, naamRef, jamaRef, narrationRef, saveRef];
+            const idx = fields.findIndex(r => r.current === document.activeElement);
+            if (idx >= 0 && idx < fields.length - 1) fields[idx + 1].current?.focus();
+          }
+          break;
+
+        // Arrow up — focus previous form field
+        case "ArrowUp":
+          if (inInput) {
+            e.preventDefault();
+            const fields = [partySelectRef, naamRef, jamaRef, narrationRef, saveRef];
+            const idx = fields.findIndex(r => r.current === document.activeElement);
+            if (idx > 0) fields[idx - 1].current?.focus();
+          }
+          break;
+
+        default:
+          break;
       }
     };
-    window.addEventListener("keydown", handleF4);
-    return () => window.removeEventListener("keydown", handleF4);
-  }, [entries]);
+    window.addEventListener("keydown", handleKeys);
+    return () => window.removeEventListener("keydown", handleKeys);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, editEntry, deleteEntry, tallyConfirm, waModal, unlocked]);
 
   // Auto-scroll table to BOTTOM when entries update (newest entry visible near entry form)
   useEffect(() => {
@@ -264,6 +316,28 @@ const LedgerPage = () => {
       if (err?.name !== "AbortError") toast.error(err.message || "PDF failed", { duration: 2500 });
     }
     setSharingPdf(false);
+  };
+
+  // Screenshot: capture ledger content area as PNG
+  const handleScreenshot = async () => {
+    const el = tableContainerRef.current;
+    if (!el) return;
+    const toastId = toast.loading("Capturing screenshot...");
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(el, { useCORS: true, backgroundColor: "#fff", scale: 2 });
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().split("T")[0];
+      link.download = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      toast.dismiss(toastId);
+      toast.success("Screenshot saved!", { duration: 1500 });
+    } catch (err) {
+      toast.dismiss(toastId);
+      if (process.env.NODE_ENV === "development") console.error("Screenshot failed:", err);
+      toast.error("Screenshot failed", { duration: 2000 });
+    }
   };
 
   const handleEditSave = async () => {
@@ -426,6 +500,9 @@ const LedgerPage = () => {
             <button onClick={handlePrint} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-stone-600 text-white hover:bg-stone-700 rounded" data-testid="export-pdf-btn" title="Print PDF">
               <Printer size={12} /> <span className="hidden lg:inline">Print</span>
             </button>
+            <button onClick={handleScreenshot} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: "#0891B2" }} data-testid="screenshot-btn" title="Screenshot (PNG)">
+              <Camera size={12} /> <span className="hidden lg:inline">Screenshot</span>
+            </button>
           </div>
         )}
       </div>
@@ -533,31 +610,31 @@ const LedgerPage = () => {
                 </div>
               </div>
 
-              {/* DESKTOP: Table view md+ */}
-              <div className="hidden md:block overflow-x-auto min-w-full">
+              {/* DESKTOP: Table — overflow-x on same container as overflow-y to preserve sticky */}
+              <div className="hidden md:block" style={{ overflowX: "auto", minWidth: "100%" }}>
               <table className="min-w-[700px] w-full border-collapse" data-testid="ledger-table">
-                <thead className="sticky top-0 z-10">
+                <thead style={{ position: "sticky", top: 0, zIndex: 20, background: "var(--primary)" }}>
                   <tr style={{ background: "var(--primary)" }} className="text-white">
-                    <th className="px-2 sm:px-3 py-2.5 sm:py-3 text-center border-r border-amber-900 w-8 sm:w-10">
+                    <th className="px-2 sm:px-3 py-1.5 text-center border-r border-amber-900 w-8 sm:w-10">
                       <input type="checkbox" className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-amber-400 cursor-pointer"
                         checked={entries.filter(e => !e.is_locked).length > 0 && entries.filter(e => !e.is_locked).every(e => selectedEntries.has(e.id))}
                         onChange={toggleAll} data-testid="select-all-checkbox" />
                     </th>
-                    <th className="px-2 sm:px-3 py-2.5 sm:py-3 text-center text-xs font-bold uppercase border-r border-amber-900 w-10">Sr.</th>
-                    <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs font-bold uppercase border-r border-amber-900 whitespace-nowrap">
+                    <th className="px-2 sm:px-3 py-1.5 text-center text-xs font-bold uppercase border-r border-amber-900 w-10">Sr.</th>
+                    <th className="px-3 sm:px-4 py-1.5 text-left text-xs font-bold uppercase border-r border-amber-900 whitespace-nowrap">
                       Date<br/><span className="text-yellow-300 text-xs font-normal normal-case">Time</span>
                     </th>
-                    <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs font-bold uppercase border-r border-amber-900 w-28 sm:w-36">Party</th>
-                    <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-right text-xs font-bold uppercase border-r border-amber-900">
+                    <th className="px-3 sm:px-4 py-1.5 text-left text-xs font-bold uppercase border-r border-amber-900 w-28 sm:w-36">Party</th>
+                    <th className="px-3 sm:px-4 py-1.5 text-right text-xs font-bold uppercase border-r border-amber-900">
                       Credit<br /><span className="text-yellow-300 text-xs font-normal">(नाम)</span>
                     </th>
-                    <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-right text-xs font-bold uppercase border-r border-amber-900">
+                    <th className="px-3 sm:px-4 py-1.5 text-right text-xs font-bold uppercase border-r border-amber-900">
                       Debit<br /><span className="text-yellow-300 text-xs font-normal">(जमा)</span>
                     </th>
-                    <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs font-bold uppercase border-r border-amber-900 hidden md:table-cell">Narration</th>
-                    <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-right text-xs font-bold uppercase border-r border-amber-900">Balance</th>
-                    <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-center text-xs font-bold uppercase border-r border-amber-900 hidden sm:table-cell">T</th>
-                    <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-center text-xs font-bold uppercase">Edit</th>
+                    <th className="px-3 sm:px-4 py-1.5 text-left text-xs font-bold uppercase border-r border-amber-900 hidden md:table-cell">Narration</th>
+                    <th className="px-3 sm:px-4 py-1.5 text-right text-xs font-bold uppercase border-r border-amber-900">Balance</th>
+                    <th className="px-2 sm:px-4 py-1.5 text-center text-xs font-bold uppercase border-r border-amber-900 hidden sm:table-cell">T</th>
+                    <th className="px-2 sm:px-4 py-1.5 text-center text-xs font-bold uppercase">Edit</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -583,29 +660,29 @@ const LedgerPage = () => {
                     const rowBg = isSelected ? "#c7d7f0" : (i % 2 === 0 ? "#FFE8CC" : "#FFDAB0");
                     return (
                       <tr key={e.id} style={{ background: rowBg }} className="border-b border-amber-300" data-testid={`ledger-row-${e.id}`}>
-                        <td className="px-2 sm:px-3 py-2 sm:py-3 text-center border-r border-amber-200">
+                        <td className="px-2 sm:px-3 py-1 sm:py-1.5 text-center border-r border-amber-200">
                           {!e.is_locked ? (
                             <input type="checkbox" checked={isSelected} onChange={() => toggleEntry(e.id)} className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 cursor-pointer" data-testid={`checkbox-${e.id}`} />
                           ) : <span className="text-stone-300 text-xs">—</span>}
                         </td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-mono text-stone-500 border-r border-amber-200">{i + 1}</td>
+                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-center text-xs font-mono text-stone-500 border-r border-amber-200">{i + 1}</td>
                         <td className="px-3 sm:px-4 py-2 sm:py-3 border-r border-amber-200 whitespace-nowrap">
                           <div className="text-base font-mono text-stone-800">{formatDate(e.date)}</div>
                           {e.created_at && <div className="text-xs text-stone-500 font-mono">{formatTime(e.created_at)}</div>}
                         </td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-base border-r border-amber-200 font-semibold">
+                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-base border-r border-amber-200 font-semibold">
                           {e.counterparty_name
                             ? <span className="text-blue-800">{toTitleCase(e.counterparty_name)}</span>
                             : <span className="text-stone-400 text-sm italic">—</span>}
                         </td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-base font-mono font-bold text-red-800 border-r border-amber-200">
+                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right text-base font-mono font-bold text-red-800 border-r border-amber-200">
                           {e.naam > 0 ? e.naam.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}
                         </td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-base font-mono font-bold text-green-900 border-r border-amber-200">
+                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right text-base font-mono font-bold text-green-900 border-r border-amber-200">
                           {e.jama > 0 ? e.jama.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}
                         </td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-base text-stone-700 border-r border-amber-200 max-w-[160px] truncate hidden md:table-cell">{e.narration || "—"}</td>
-                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right border-r border-amber-200">
+                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-base text-stone-700 border-r border-amber-200 max-w-[160px] truncate hidden md:table-cell">{e.narration || "—"}</td>
+                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right border-r border-amber-200">
                           <span className={`text-base font-mono font-bold whitespace-nowrap ${balColor(e.balance)}`}>
                             {Math.abs(e.balance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                           </span>

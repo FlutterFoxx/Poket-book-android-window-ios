@@ -1,13 +1,34 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
-import { RefreshCw, Printer, FileSpreadsheet } from "lucide-react";
+import { toast } from "sonner";
+import { RefreshCw, Printer, FileSpreadsheet, Camera } from "lucide-react";
 
 const BalanceSheet = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const contentRef = useRef(null);
+
+  const handleScreenshot = async () => {
+    const el = contentRef.current;
+    if (!el) return;
+    const toastId = toast.loading("Capturing...");
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(el, { useCORS: true, backgroundColor: "#fff", scale: 2 });
+      const link = document.createElement("a");
+      link.download = `balance-sheet_${new Date().toISOString().split("T")[0]}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      toast.dismiss(toastId);
+      toast.success("Screenshot saved!", { duration: 1500 });
+    } catch {
+      toast.dismiss(toastId);
+      toast.error("Screenshot failed", { duration: 2000 });
+    }
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -123,6 +144,9 @@ const BalanceSheet = () => {
             <button onClick={handleExcelDownload} style={{ background: "#16A34A", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-export-excel-btn">
               <FileSpreadsheet size={14} /> Excel
             </button>
+            <button onClick={handleScreenshot} style={{ background: "#0891B2", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-screenshot-btn" title="Screenshot PNG">
+              <Camera size={14} /> Screenshot
+            </button>
           </div>
         </div>
 
@@ -157,7 +181,7 @@ const BalanceSheet = () => {
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--primary)", borderTopColor: "transparent" }} />
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", gap: 0, overflow: "hidden", minHeight: 0 }}>
+        <div ref={contentRef} style={{ flex: 1, display: "flex", gap: 0, overflow: "hidden", minHeight: 0 }}>
 
           {/* ── LEFT: DENA HAI (Blue) — independently scrollable ── */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: "2px solid var(--border)", minWidth: 0, overflow: "hidden" }}>
