@@ -135,64 +135,45 @@ const LedgerPage = () => {
   // F4 = edit most recent unlocked entry
   // ── Global keyboard shortcuts ──────────────────────────────────────────────
   useEffect(() => {
+    const FORM_REFS = [partySelectRef, naamRef, jamaRef, narrationRef, saveRef];
+
     const handleKeys = (e) => {
       const tag = document.activeElement?.tagName;
       const inInput = ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
 
-      switch (e.key) {
-        // F1 — Focus party selector (open party selection)
-        case "F1":
-          e.preventDefault();
-          partySelectRef.current?.focus();
-          break;
+      // Use if-else instead of switch to avoid const TDZ in case blocks
+      if (e.key === "F1") {
+        e.preventDefault();
+        partySelectRef.current?.focus();
 
-        // F4 — Edit first unlocked entry
-        case "F4":
-          e.preventDefault();
-          const firstUnlocked = entries.find(en => !en.is_locked);
-          if (firstUnlocked) {
-            setEditEntry(firstUnlocked);
-            setEditForm({ date: firstUnlocked.date, naam: firstUnlocked.naam || "", jama: firstUnlocked.jama || "", narration: firstUnlocked.narration || "" });
-          } else { toast.error("Koi unlocked entry nahi hai edit karne ke liye"); }
-          break;
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        const firstUnlocked = entries.find(en => !en.is_locked);
+        if (firstUnlocked) {
+          setEditEntry(firstUnlocked);
+          setEditForm({ date: firstUnlocked.date, naam: firstUnlocked.naam || "", jama: firstUnlocked.jama || "", narration: firstUnlocked.narration || "" });
+        } else { toast.error("Koi unlocked entry nahi hai edit karne ke liye"); }
 
-        // F5 — Tally/Finalize (lock all unlocked entries)
-        case "F5":
-          e.preventDefault();
-          if (unlocked > 0) setTallyConfirm(true);
-          else toast.info("Sab entries already locked hain");
-          break;
+      } else if (e.key === "F5") {
+        e.preventDefault();
+        if (unlocked > 0) setTallyConfirm(true);
+        else toast.info("Sab entries already locked hain");
 
-        // ESC — Close any open modal
-        case "Escape":
-          if (editEntry) { setEditEntry(null); setEditForm({}); }
-          if (deleteEntry) setDeleteEntry(null);
-          if (tallyConfirm) setTallyConfirm(false);
-          if (waModal) setWaModal(false);
-          break;
+      } else if (e.key === "Escape") {
+        if (editEntry) { setEditEntry(null); setEditForm({}); }
+        if (deleteEntry) setDeleteEntry(null);
+        if (tallyConfirm) setTallyConfirm(false);
+        if (waModal) setWaModal(false);
 
-        // Arrow down — focus next form field (only when in a form input)
-        case "ArrowDown":
-          if (inInput) {
-            e.preventDefault();
-            const fields = [partySelectRef, naamRef, jamaRef, narrationRef, saveRef];
-            const idx = fields.findIndex(r => r.current === document.activeElement);
-            if (idx >= 0 && idx < fields.length - 1) fields[idx + 1].current?.focus();
-          }
-          break;
+      } else if (e.key === "ArrowDown" && inInput) {
+        e.preventDefault();
+        const downIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
+        if (downIdx >= 0 && downIdx < FORM_REFS.length - 1) FORM_REFS[downIdx + 1].current?.focus();
 
-        // Arrow up — focus previous form field
-        case "ArrowUp":
-          if (inInput) {
-            e.preventDefault();
-            const fields = [partySelectRef, naamRef, jamaRef, narrationRef, saveRef];
-            const idx = fields.findIndex(r => r.current === document.activeElement);
-            if (idx > 0) fields[idx - 1].current?.focus();
-          }
-          break;
-
-        default:
-          break;
+      } else if (e.key === "ArrowUp" && inInput) {
+        e.preventDefault();
+        const upIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
+        if (upIdx > 0) FORM_REFS[upIdx - 1].current?.focus();
       }
     };
     window.addEventListener("keydown", handleKeys);
