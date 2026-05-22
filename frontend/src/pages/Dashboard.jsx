@@ -41,7 +41,14 @@ const Dashboard = () => {
     try {
       const res = await api.get("/api/oauth/sheets/connect");
       if (res.data.configured && res.data.url) {
-        window.location.href = res.data.url;
+        // Use _system target to open in Chrome Custom Tabs on Android (avoids disallowed_useragent error)
+        // In a Capacitor WebView, window.open with _system bypasses the WebView and uses the device browser
+        const isNative = window.Capacitor?.isNativePlatform?.() || navigator.userAgent?.includes("wv");
+        if (isNative) {
+          window.open(res.data.url, "_system");
+        } else {
+          window.location.href = res.data.url;
+        }
       } else {
         toast.error("Google Sheets not configured — add secrets first");
       }

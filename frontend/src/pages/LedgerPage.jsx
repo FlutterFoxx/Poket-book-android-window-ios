@@ -490,6 +490,17 @@ const LedgerPage = () => {
 
       </div>{/* end collapsible upper bars */}
 
+      {/* ── Keyboard Shortcuts Legend — desktop only ──────────────── */}
+      <div className="hidden md:flex flex-shrink-0 items-center gap-3 px-4 py-1 text-xs text-stone-500 border-b border-stone-200" style={{ background: "#FAFAF9" }}>
+        <span className="font-bold text-stone-600 mr-1">Shortcuts:</span>
+        {[["F1","Party Select"],["F4","Edit Entry"],["F5","Tally Lock"],["ESC","Close Modal"],["↑↓","Navigate Fields"]].map(([k,v]) => (
+          <span key={k} className="flex items-center gap-1">
+            <kbd className="bg-stone-200 text-stone-700 font-mono font-bold px-1.5 py-0.5 rounded text-xs border border-stone-300">{k}</kbd>
+            <span className="text-stone-500">{v}</span>
+          </span>
+        ))}
+      </div>
+
       {/* ── Full Account Info Panel ── */}
       {showFullAccount && partyInfo && selectedId && (
         <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-3 sm:px-5 py-2 flex flex-wrap items-center gap-3 sm:gap-6 text-sm">
@@ -515,7 +526,7 @@ const LedgerPage = () => {
 
       {/* ── Ledger Content ─────────────────────────────────────────── */}
       {selectedId && (
-        <div className="flex-1 overflow-auto" style={{ background: "var(--bg-page)" }} ref={tableContainerRef}>
+        <div className="flex-1" style={{ background: "var(--bg-page)", overflowX: "auto", overflowY: "auto" }} ref={tableContainerRef}>
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="w-8 h-8 border-4 border-stone-600 border-t-transparent rounded-full animate-spin" />
@@ -591,8 +602,8 @@ const LedgerPage = () => {
                 </div>
               </div>
 
-              {/* DESKTOP: Table — overflow-x on same container as overflow-y to preserve sticky */}
-              <div className="hidden md:block" style={{ overflowX: "auto", minWidth: "100%" }}>
+              {/* DESKTOP: Table — outer container handles both axes; no inner overflow to break sticky */}
+              <div className="hidden md:block" style={{ minWidth: "700px" }}>
               <table className="min-w-[700px] w-full border-collapse" data-testid="ledger-table">
                 <thead style={{ position: "sticky", top: 0, zIndex: 20, background: "var(--primary)" }}>
                   <tr style={{ background: "var(--primary)" }} className="text-white">
