@@ -31,7 +31,7 @@ export const LangProvider = ({ children }) => {
   const [lang, setLang] = useState(() => {
     try { return localStorage.getItem("pk_lang") || "en"; } catch { return "en"; }
   });
-  const switchLang = (l) => { try { localStorage.setItem("pk_lang", l); } catch {} setLang(l); };
+  const switchLang = (l) => { try { localStorage.setItem("pk_lang", l); } catch (e) { /* storage restricted — language still applied in-memory */ } setLang(l); };
   return (
     <LangContext.Provider value={{ lang, t: TRANSLATIONS[lang] || TRANSLATIONS.en, setLang: switchLang }}>
       {children}

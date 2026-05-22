@@ -6,7 +6,7 @@ from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import uuid as uuid_lib
-from core import *
+from core import (db, hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, JWT_ALGORITHM, UserCreate, UserLogin, PhoneSendOTP, PhoneVerifyOTP)
 from security import (
     validate_email, validate_password_strength, check_password_legacy,
     sanitize_name, sanitize_email,

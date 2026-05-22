@@ -8,7 +8,7 @@ const BASE = process.env.REACT_APP_BACKEND_URL;
 // localStorage persists indefinitely; tokens have 7-day expiry built in.
 // Safe storage helpers — handle restricted storage environments (Capacitor, etc.)
 const safeGet = (key) => { try { return localStorage.getItem(key) || sessionStorage.getItem(key); } catch { return null; } };
-const safeSet = (key, val) => { try { if (val) { localStorage.setItem(key, val); sessionStorage.setItem(key, val); } else { localStorage.removeItem(key); sessionStorage.removeItem(key); } } catch {} };
+const safeSet = (key, val) => { try { if (val) { localStorage.setItem(key, val); sessionStorage.setItem(key, val); } else { localStorage.removeItem(key); sessionStorage.removeItem(key); } } catch (e) { /* storage restricted in this environment */ } };
 const getToken = () => safeGet("access_token");
 const setToken = (t) => safeSet("access_token", t);
 const setRefreshToken = (t) => safeSet("refresh_token", t);

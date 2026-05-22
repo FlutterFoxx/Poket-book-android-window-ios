@@ -6,7 +6,8 @@ from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import uuid as uuid_lib
-from core import *
+from core import (db, get_current_user, SubscriptionUpdate, SUBSCRIPTION_DAYS)
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api")
 

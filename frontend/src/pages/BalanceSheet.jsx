@@ -40,9 +40,10 @@ const BalanceSheet = () => {
           toast.success("Screenshot saved!", { duration: 1500 });
         }
       }, "image/png");
-    } catch {
+    } catch (err) {
       document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
+      if (process.env.NODE_ENV === "development") console.error("Screenshot failed:", err);
       toast.error("Screenshot failed", { duration: 2000 });
     }
   };
