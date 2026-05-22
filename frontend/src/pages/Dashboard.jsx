@@ -41,18 +41,22 @@ const Dashboard = () => {
     try {
       const res = await api.get("/api/oauth/sheets/connect");
       if (res.data.configured && res.data.url) {
-        // Use _system target to open in Chrome Custom Tabs on Android (avoids disallowed_useragent error)
-        // In a Capacitor WebView, window.open with _system bypasses the WebView and uses the device browser
         const isNative = window.Capacitor?.isNativePlatform?.() || navigator.userAgent?.includes("wv");
         if (isNative) {
-          window.open(res.data.url, "_system");
+          // Try _system first (Chrome Custom Tabs), then _blank fallback
+          const w = window.open(res.data.url, "_system");
+          if (!w) window.open(res.data.url, "_blank");
         } else {
-          window.location.href = res.data.url;
+          // Web: open in new tab to avoid losing app state
+          window.open(res.data.url, "_blank", "noopener,noreferrer");
         }
+        toast.info("Google login page opened — complete login and return here", { duration: 4000 });
       } else {
-        toast.error("Google Sheets not configured — add secrets first");
+        toast.error(res.data.error || "Google Sheets not configured");
       }
-    } catch { toast.error("Connection failed"); }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Connection failed — try again");
+    }
     setConnecting(false);
   };
 

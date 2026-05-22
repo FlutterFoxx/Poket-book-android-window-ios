@@ -16,15 +16,32 @@ const BalanceSheet = () => {
     if (!el) return;
     const toastId = toast.loading("Capturing...");
     try {
+      const hidden = document.querySelectorAll(".no-screenshot");
+      hidden.forEach(h => { h.style.visibility = "hidden"; });
+
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(el, { useCORS: true, backgroundColor: "#fff", scale: 2 });
-      const link = document.createElement("a");
-      link.download = `balance-sheet_${new Date().toISOString().split("T")[0]}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-      toast.dismiss(toastId);
-      toast.success("Screenshot saved!", { duration: 1500 });
+      const canvas = await html2canvas(el, { useCORS: true, backgroundColor: "#fff", scale: 2, logging: false });
+
+      hidden.forEach(h => { h.style.visibility = ""; });
+
+      const fileName = `balance-sheet_${new Date().toISOString().split("T")[0]}.png`;
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], fileName, { type: "image/png" });
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          toast.dismiss(toastId);
+          await navigator.share({ files: [file], title: fileName });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = fileName;
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a); URL.revokeObjectURL(url);
+          toast.dismiss(toastId);
+          toast.success("Screenshot saved!", { duration: 1500 });
+        }
+      }, "image/png");
     } catch {
+      document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
       toast.error("Screenshot failed", { duration: 2000 });
     }

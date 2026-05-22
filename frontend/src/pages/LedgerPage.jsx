@@ -313,22 +313,43 @@ const LedgerPage = () => {
     setSharingPdf(false);
   };
 
-  // Screenshot: capture ledger content area as PNG
+  // Screenshot: capture content as PNG, share via Web Share API (saves to gallery on mobile)
   const handleScreenshot = async () => {
     const el = tableContainerRef.current;
     if (!el) return;
     const toastId = toast.loading("Capturing screenshot...");
     try {
+      // Temporarily hide elements marked no-screenshot (bottom nav, floating buttons)
+      const hidden = document.querySelectorAll(".no-screenshot");
+      hidden.forEach(h => { h.style.visibility = "hidden"; });
+
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(el, { useCORS: true, backgroundColor: "#fff", scale: 2 });
-      const link = document.createElement("a");
+      const canvas = await html2canvas(el, { useCORS: true, backgroundColor: "#fff", scale: 2, logging: false });
+
+      hidden.forEach(h => { h.style.visibility = ""; });
+
       const dateStr = new Date().toISOString().split("T")[0];
-      link.download = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-      toast.dismiss(toastId);
-      toast.success("Screenshot saved!", { duration: 1500 });
+      const fileName = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
+
+      // Try Web Share API with file first — saves directly to gallery on Android
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], fileName, { type: "image/png" });
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          toast.dismiss(toastId);
+          await navigator.share({ files: [file], title: fileName });
+        } else {
+          // Desktop fallback: trigger download
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = fileName;
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a); URL.revokeObjectURL(url);
+          toast.dismiss(toastId);
+          toast.success("Screenshot saved!", { duration: 1500 });
+        }
+      }, "image/png");
     } catch (err) {
+      document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
       if (process.env.NODE_ENV === "development") console.error("Screenshot failed:", err);
       toast.error("Screenshot failed", { duration: 2000 });
