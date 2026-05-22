@@ -161,6 +161,9 @@ const BalanceSheet = () => {
           <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex", flexShrink: 0 }} data-testid="bs-refresh-btn">
             <RefreshCw size={15} />
           </button>
+          <button onClick={handleScreenshot} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex", flexShrink: 0 }} data-testid="bs-screenshot-btn-mobile" title="Screenshot">
+            <Camera size={15} />
+          </button>
         </div>
 
         {/* Mobile-only: Print + Excel full-width */}

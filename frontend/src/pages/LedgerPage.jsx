@@ -44,6 +44,7 @@ const LedgerPage = () => {
   const [selectedEntries, setSelectedEntries] = useState(new Set());
   const [liveTime, setLiveTime] = useState(new Date()); // live clock
   const [isEntryOpen, setIsEntryOpen] = useState(true);
+  const [focusedRowIdx, setFocusedRowIdx] = useState(-1); // -1 = no row focused
   const savingLockRef = useRef(false);
 
   const naamRef = useRef(null);
@@ -130,9 +131,8 @@ const LedgerPage = () => {
   useEffect(() => { fetchParties(); }, [fetchParties]);
   useEffect(() => { if (urlPartyId) setSelectedId(urlPartyId); }, [urlPartyId]);
   useEffect(() => { if (selectedId) { fetchEntries(selectedId); setVisibleCount(80); } }, [selectedId, fetchEntries]);
-  useEffect(() => { setFastEntry(p => ({ ...p, partyId: "" })); }, [selectedId]);
+  useEffect(() => { setFastEntry(p => ({ ...p, partyId: "" })); setFocusedRowIdx(-1); }, [selectedId]);
 
-  // F4 = edit most recent unlocked entry
   // ── Global keyboard shortcuts ──────────────────────────────────────────────
   useEffect(() => {
     const FORM_REFS = [partySelectRef, naamRef, jamaRef, narrationRef, saveRef];
@@ -141,17 +141,18 @@ const LedgerPage = () => {
       const tag = document.activeElement?.tagName;
       const inInput = ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
 
-      // Use if-else instead of switch to avoid const TDZ in case blocks
       if (e.key === "F1") {
         e.preventDefault();
         partySelectRef.current?.focus();
 
       } else if (e.key === "F4") {
         e.preventDefault();
-        const firstUnlocked = entries.find(en => !en.is_locked);
-        if (firstUnlocked) {
-          setEditEntry(firstUnlocked);
-          setEditForm({ date: firstUnlocked.date, naam: firstUnlocked.naam || "", jama: firstUnlocked.jama || "", narration: firstUnlocked.narration || "" });
+        // Edit the currently focused/navigated row, or first unlocked as fallback
+        const targetIdx = focusedRowIdx >= 0 ? focusedRowIdx : null;
+        const targetEntry = targetIdx !== null ? entries[targetIdx] : entries.find(en => !en.is_locked);
+        if (targetEntry && !targetEntry.is_locked) {
+          setEditEntry(targetEntry);
+          setEditForm({ date: targetEntry.date, naam: targetEntry.naam || "", jama: targetEntry.jama || "", narration: targetEntry.narration || "" });
         } else { toast.error("Koi unlocked entry nahi hai edit karne ke liye"); }
 
       } else if (e.key === "F5") {
@@ -164,22 +165,35 @@ const LedgerPage = () => {
         if (deleteEntry) setDeleteEntry(null);
         if (tallyConfirm) setTallyConfirm(false);
         if (waModal) setWaModal(false);
+        setFocusedRowIdx(-1);
 
-      } else if (e.key === "ArrowDown" && inInput) {
-        e.preventDefault();
-        const downIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
-        if (downIdx >= 0 && downIdx < FORM_REFS.length - 1) FORM_REFS[downIdx + 1].current?.focus();
+      } else if (e.key === "ArrowDown") {
+        if (inInput) {
+          // Navigate form fields when inside an input
+          e.preventDefault();
+          const downIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
+          if (downIdx >= 0 && downIdx < FORM_REFS.length - 1) FORM_REFS[downIdx + 1].current?.focus();
+        } else if (!editEntry) {
+          // Navigate table rows when not in an input and no modal open
+          e.preventDefault();
+          setFocusedRowIdx(prev => Math.min(prev + 1, entries.length - 1));
+        }
 
-      } else if (e.key === "ArrowUp" && inInput) {
-        e.preventDefault();
-        const upIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
-        if (upIdx > 0) FORM_REFS[upIdx - 1].current?.focus();
+      } else if (e.key === "ArrowUp") {
+        if (inInput) {
+          e.preventDefault();
+          const upIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
+          if (upIdx > 0) FORM_REFS[upIdx - 1].current?.focus();
+        } else if (!editEntry) {
+          e.preventDefault();
+          setFocusedRowIdx(prev => Math.max(prev - 1, 0));
+        }
       }
     };
     window.addEventListener("keydown", handleKeys);
     return () => window.removeEventListener("keydown", handleKeys);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, editEntry, deleteEntry, tallyConfirm, waModal, unlocked]);
+  }, [entries, editEntry, deleteEntry, tallyConfirm, waModal, unlocked, focusedRowIdx]);
 
   // Auto-scroll table to BOTTOM when entries update (newest entry visible near entry form)
   useEffect(() => {
@@ -649,9 +663,14 @@ const LedgerPage = () => {
                   ) : visibleEntries.map((e, i) => {
                     const bl = balLabel(e.balance);
                     const isSelected = selectedEntries.has(e.id);
-                    const rowBg = isSelected ? "#c7d7f0" : (i % 2 === 0 ? "#FFE8CC" : "#FFDAB0");
+                    const isFocused = focusedRowIdx === i;
+                    const rowBg = isFocused ? "#0A1628" : isSelected ? "#c7d7f0" : (i % 2 === 0 ? "#FFE8CC" : "#FFDAB0");
                     return (
-                      <tr key={e.id} style={{ background: rowBg }} className="border-b border-amber-300" data-testid={`ledger-row-${e.id}`}>
+                      <tr key={e.id}
+                        onClick={() => setFocusedRowIdx(i)}
+                        style={{ background: rowBg, outline: isFocused ? "2px solid #F59E0B" : "none", cursor: "pointer" }}
+                        className="border-b border-amber-300"
+                        data-testid={`ledger-row-${e.id}`}>
                         <td className="px-2 sm:px-3 py-1 sm:py-1.5 text-center border-r border-amber-200">
                           {!e.is_locked ? (
                             <input type="checkbox" checked={isSelected} onChange={() => toggleEntry(e.id)} className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 cursor-pointer" data-testid={`checkbox-${e.id}`} />
