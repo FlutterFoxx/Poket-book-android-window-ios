@@ -54,17 +54,7 @@ const BalanceSheet = () => {
           }
         }
 
-        // Strategy 2: iOS — open in new tab, user long-presses to save
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        if (isIOS) {
-          const tab = window.open(dataUrl, "_blank");
-          toast.dismiss(toastId);
-          toast.success(tab ? "Image opened — long press to save to Photos" : "Saved!", { duration: 4000 });
-          if (!tab) saveViaDownload();
-          return;
-        }
-
-        // Strategy 3: Desktop / Android — direct download
+        // Direct download — works on all devices (no window.open needed)
         saveViaDownload();
       }, "image/png");
 
@@ -92,28 +82,33 @@ const BalanceSheet = () => {
 
   const fmt = (n) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Math.abs(n || 0));
 
-  // PDF Print — open in browser print dialog
-  // Opens a blank window immediately (preserves user gesture), then loads the PDF
+  // PDF Print — mobile-safe: Web Share → download (no window.open after async)
   const handlePrint = async () => {
     if (!data) return;
-    // Open window NOW (sync, on click) — before async fetch to avoid popup blocker
-    const printWin = window.open("", "_blank");
-    if (!printWin) {
-      toast.error("Popup blocked — allow popups for poketbook.in and try again");
-      return;
-    }
-    printWin.document.write(`<html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#1a1a2e;color:#fff;font-family:sans-serif"><p>Loading PDF...</p></body></html>`);
-
-    const toastId = toast.loading("Opening print preview...");
+    const toastId = toast.loading("Generating PDF...");
     try {
       const res = await api.get("/api/export/balance-sheet/pdf", { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      // Load PDF into the already-open window — browser PDF viewer shows print button
-      printWin.location.href = url;
+      const blob = res.data;
+      const fileName = `PoketBook_BalanceSheet_${new Date().toISOString().split("T")[0]}.pdf`;
       toast.dismiss(toastId);
-      toast.success("Print preview opened!", { duration: 1500 });
+
+      // Try Web Share with PDF file (opens print/share on mobile)
+      const pdfFile = new File([blob], fileName, { type: "application/pdf" });
+      if (navigator.canShare?.({ files: [pdfFile] })) {
+        try {
+          await navigator.share({ files: [pdfFile], title: fileName });
+          return;
+        } catch (e) { if (e.name === "AbortError") return; }
+      }
+
+      // Desktop / fallback: download PDF
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast.success("PDF downloaded!", { duration: 1500 });
     } catch (err) {
-      printWin.close();
       toast.dismiss(toastId);
       if (process.env.NODE_ENV === "development") console.error("PDF failed:", err);
       toast.error("PDF generation failed — try again", { duration: 2500 });
