@@ -319,46 +319,54 @@ const LedgerPage = () => {
     setSharingPdf(false);
   };
 
-  // Screenshot: capture content as PNG, share via Web Share API (saves to gallery on mobile)
+  // Screenshot: capture content, multi-strategy for all devices
   const handleScreenshot = async () => {
     const el = tableContainerRef.current;
     if (!el) return;
     const toastId = toast.loading("Capturing screenshot...");
     try {
-      // Temporarily hide elements marked no-screenshot (bottom nav, floating buttons)
       const hidden = document.querySelectorAll(".no-screenshot");
       hidden.forEach(h => { h.style.visibility = "hidden"; });
 
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(el, { useCORS: true, backgroundColor: "#fff", scale: 2, logging: false });
+      const canvas = await html2canvas(el, {
+        useCORS: true, backgroundColor: "#fff", scale: 1.5, logging: false,
+        windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
+      });
 
       hidden.forEach(h => { h.style.visibility = ""; });
+      toast.dismiss(toastId);
 
       const dateStr = new Date().toISOString().split("T")[0];
       const fileName = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
+      const dataUrl = canvas.toDataURL("image/png");
 
-      // Try Web Share API with file first — saves directly to gallery on Android
-      canvas.toBlob(async (blob) => {
-        const file = new File([blob], fileName, { type: "image/png" });
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          toast.dismiss(toastId);
-          await navigator.share({ files: [file], title: fileName });
-        } else {
-          // Desktop fallback: trigger download
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url; a.download = fileName;
-          document.body.appendChild(a); a.click();
-          document.body.removeChild(a); URL.revokeObjectURL(url);
-          toast.dismiss(toastId);
-          toast.success("Screenshot saved!", { duration: 1500 });
-        }
-      }, "image/png");
+      const dl = (url, name) => {
+        const a = document.createElement("a");
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast.success("Screenshot saved!", { duration: 1500 });
+      };
+
+      if (navigator.share) {
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], fileName, { type: "image/png" });
+          if (navigator.canShare?.({ files: [file] })) {
+            try { await navigator.share({ files: [file], title: fileName }); return; } catch (e) { if (e.name === "AbortError") return; }
+          }
+          // Open in new tab (iOS: user long-presses → Save to Photos)
+          const tab = window.open(dataUrl, "_blank");
+          if (!tab) dl(dataUrl, fileName);
+          else toast.success("Image opened — long press to save", { duration: 3000 });
+        }, "image/png");
+      } else {
+        dl(dataUrl, fileName);
+      }
     } catch (err) {
       document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
       if (process.env.NODE_ENV === "development") console.error("Screenshot failed:", err);
-      toast.error("Screenshot failed", { duration: 2000 });
+      toast.error("Screenshot failed — try the Print PDF button", { duration: 2500 });
     }
   };
 
