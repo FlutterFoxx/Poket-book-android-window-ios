@@ -24,47 +24,56 @@ const BalanceSheet = () => {
         useCORS: true, backgroundColor: "#fff", scale: 1.5, logging: false,
         windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
       });
-
       hidden.forEach(h => { h.style.visibility = ""; });
-      toast.dismiss(toastId);
+      // NOTE: Do NOT dismiss toast here — dismiss only after actual save
 
       const fileName = `balance-sheet_${new Date().toISOString().split("T")[0]}.png`;
       const dataUrl = canvas.toDataURL("image/png");
 
-      // Strategy 1: Web Share API with file (Android Chrome 75+ / iOS Safari 15+)
-      if (navigator.share) {
-        canvas.toBlob(async (blob) => {
-          const file = new File([blob], fileName, { type: "image/png" });
-          if (navigator.canShare?.({ files: [file] })) {
-            try { await navigator.share({ files: [file], title: fileName }); return; } catch (e) { if (e.name === "AbortError") return; }
-          }
-          // Strategy 2: Share via URL (text share — works on all phones with share API)
+      const saveViaDownload = () => {
+        const a = document.createElement("a");
+        a.href = dataUrl; a.download = fileName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast.dismiss(toastId);
+        toast.success("Screenshot saved!", { duration: 1500 });
+      };
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) { saveViaDownload(); return; }
+        const file = new File([blob], fileName, { type: "image/png" });
+
+        // Strategy 1: Web Share with file (Android Chrome / iOS 15+)
+        if (navigator.canShare?.({ files: [file] })) {
           try {
-            await navigator.share({ title: "PoketBook Balance Sheet", text: "Balance Sheet exported from PoketBook", url: "https://poketbook.in" });
+            await navigator.share({ files: [file], title: fileName });
+            toast.dismiss(toastId);
+            toast.success("Screenshot shared!", { duration: 1500 });
             return;
-          } catch {}
-          // Strategy 3: Open in new tab (iOS Safari — user long-presses to save)
+          } catch (e) {
+            if (e.name === "AbortError") { toast.dismiss(toastId); return; }
+          }
+        }
+
+        // Strategy 2: iOS — open in new tab, user long-presses to save
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
           const tab = window.open(dataUrl, "_blank");
-          if (!tab) { downloadFallback(dataUrl, fileName); }
-        }, "image/png");
-      } else {
-        // Desktop / unsupported: direct download
-        downloadFallback(dataUrl, fileName);
-      }
+          toast.dismiss(toastId);
+          toast.success(tab ? "Image opened — long press to save to Photos" : "Saved!", { duration: 4000 });
+          if (!tab) saveViaDownload();
+          return;
+        }
+
+        // Strategy 3: Desktop / Android — direct download
+        saveViaDownload();
+      }, "image/png");
+
     } catch (err) {
       document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
       if (process.env.NODE_ENV === "development") console.error("Screenshot failed:", err);
-      toast.error("Screenshot failed — try the PDF button instead", { duration: 3000 });
+      toast.error("Screenshot failed", { duration: 2500 });
     }
-  };
-
-  const downloadFallback = (dataUrl, fileName) => {
-    const a = document.createElement("a");
-    a.href = dataUrl; a.download = fileName;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    toast.success("Screenshot saved!", { duration: 1500 });
   };
 
   const fetchData = useCallback(async () => {
@@ -83,21 +92,28 @@ const BalanceSheet = () => {
 
   const fmt = (n) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Math.abs(n || 0));
 
-  // PDF Print — download from backend (branded PDF, no popup needed)
+  // PDF Print — open in browser print dialog
+  // Opens a blank window immediately (preserves user gesture), then loads the PDF
   const handlePrint = async () => {
     if (!data) return;
-    const toastId = toast.loading("Generating PDF...");
+    // Open window NOW (sync, on click) — before async fetch to avoid popup blocker
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      toast.error("Popup blocked — allow popups for poketbook.in and try again");
+      return;
+    }
+    printWin.document.write(`<html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#1a1a2e;color:#fff;font-family:sans-serif"><p>Loading PDF...</p></body></html>`);
+
+    const toastId = toast.loading("Opening print preview...");
     try {
       const res = await api.get("/api/export/balance-sheet/pdf", { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `PoketBook_BalanceSheet_${new Date().toISOString().split("T")[0]}.pdf`;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
+      // Load PDF into the already-open window — browser PDF viewer shows print button
+      printWin.location.href = url;
       toast.dismiss(toastId);
-      toast.success("PDF downloaded!", { duration: 1500 });
+      toast.success("Print preview opened!", { duration: 1500 });
     } catch (err) {
+      printWin.close();
       toast.dismiss(toastId);
       if (process.env.NODE_ENV === "development") console.error("PDF failed:", err);
       toast.error("PDF generation failed — try again", { duration: 2500 });

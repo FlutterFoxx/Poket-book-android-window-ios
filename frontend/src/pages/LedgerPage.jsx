@@ -335,33 +335,46 @@ const LedgerPage = () => {
       });
 
       hidden.forEach(h => { h.style.visibility = ""; });
-      toast.dismiss(toastId);
+      // Do NOT dismiss toast here — only after actual save
 
       const dateStr = new Date().toISOString().split("T")[0];
       const fileName = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
       const dataUrl = canvas.toDataURL("image/png");
 
-      const dl = (url, name) => {
+      const saveViaDownload = () => {
         const a = document.createElement("a");
-        a.href = url; a.download = name;
+        a.href = dataUrl; a.download = fileName;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast.dismiss(toastId);
         toast.success("Screenshot saved!", { duration: 1500 });
       };
 
-      if (navigator.share) {
-        canvas.toBlob(async (blob) => {
-          const file = new File([blob], fileName, { type: "image/png" });
-          if (navigator.canShare?.({ files: [file] })) {
-            try { await navigator.share({ files: [file], title: fileName }); return; } catch (e) { if (e.name === "AbortError") return; }
+      canvas.toBlob(async (blob) => {
+        if (!blob) { saveViaDownload(); return; }
+        const file = new File([blob], fileName, { type: "image/png" });
+
+        if (navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: fileName });
+            toast.dismiss(toastId);
+            toast.success("Screenshot shared!", { duration: 1500 });
+            return;
+          } catch (e) {
+            if (e.name === "AbortError") { toast.dismiss(toastId); return; }
           }
-          // Open in new tab (iOS: user long-presses → Save to Photos)
+        }
+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
           const tab = window.open(dataUrl, "_blank");
-          if (!tab) dl(dataUrl, fileName);
-          else toast.success("Image opened — long press to save", { duration: 3000 });
-        }, "image/png");
-      } else {
-        dl(dataUrl, fileName);
-      }
+          toast.dismiss(toastId);
+          toast.success(tab ? "Image opened — long press to save" : "Saved!", { duration: 4000 });
+          if (!tab) saveViaDownload();
+          return;
+        }
+
+        saveViaDownload();
+      }, "image/png");
     } catch (err) {
       document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
@@ -402,24 +415,27 @@ const LedgerPage = () => {
     } catch (err) { toast.error(err.response?.data?.detail || "Lock nahi hua"); }
   };
 
-  // Download PDF from backend (branded, with branding)
+  // PDF Print — open in print dialog (open window first to avoid popup blocker)
   const handlePrint = async () => {
     if (!partyInfo || !selectedId) return;
-    const toastId = toast.loading("Generating PDF...");
+    // Open window synchronously on click — before async fetch to preserve user gesture
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      toast.error("Popup blocked — allow popups for this site and try again");
+      return;
+    }
+    printWin.document.write(`<html><body style="margin:0;background:#1a1a2e;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh"><p>Loading PDF...</p></body></html>`);
+    const toastId = toast.loading("Opening print preview...");
     try {
       const res = await api.get(`/api/export/ledger/${selectedId}/pdf`, { responseType: "blob" });
-      const blob = res.data;
-      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(res.data);
+      printWin.location.href = url;
       toast.dismiss(toastId);
-      toast.success("PDF downloaded!", { duration: 1500 });
+      toast.success("Print preview opened!", { duration: 1500 });
     } catch (err) {
+      printWin.close();
       toast.dismiss(toastId);
-      if (process.env.NODE_ENV === "development") console.error("PDF download failed:", err);
+      if (process.env.NODE_ENV === "development") console.error("PDF failed:", err);
       toast.error("PDF generation failed", { duration: 2000 });
     }
   };
