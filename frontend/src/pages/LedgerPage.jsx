@@ -45,6 +45,12 @@ const LedgerPage = () => {
   const [liveTime, setLiveTime] = useState(new Date()); // live clock
   const [isEntryOpen, setIsEntryOpen] = useState(true);
   const [focusedRowIdx, setFocusedRowIdx] = useState(-1); // -1 = no row focused
+  // WhatsApp share state — declared here (before keyboard useEffect) to avoid TDZ in production build
+  const [sharingPdf, setSharingPdf] = useState(false);
+  const [waModal, setWaModal] = useState(false);
+  const [waFrom, setWaFrom] = useState("");
+  const [waTo, setWaTo] = useState("");
+  const [waMode, setWaMode] = useState("latest");
   const savingLockRef = useRef(false);
 
   const naamRef = useRef(null);
@@ -266,11 +272,6 @@ const LedgerPage = () => {
   };
 
   // WhatsApp share with date range modal
-  const [sharingPdf, setSharingPdf] = useState(false);
-  const [waModal, setWaModal] = useState(false);
-  const [waFrom, setWaFrom] = useState("");
-  const [waTo, setWaTo] = useState("");
-  const [waMode, setWaMode] = useState("latest"); // "latest" | "range"
 
   const handleWhatsAppShare = () => {
     if (!partyInfo || !selectedId) return;
