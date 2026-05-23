@@ -36,6 +36,17 @@ const Dashboard = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, []);
 
+  // Refresh status when window regains focus (user returns from Google OAuth tab)
+  useEffect(() => {
+    const onFocus = () => {
+      api.get("/api/export/sheets-status")
+        .then(r => { if (r.data) setSheetsStatus(r.data); })
+        .catch(() => {});
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   const handleConnect = async () => {
     setConnecting(true);
     try {
@@ -73,14 +84,15 @@ const Dashboard = () => {
 
   const handleDownloadCSV = async () => {
     try {
-      const res = await api.get("/api/export/csv-backup", { responseType: "blob" });
+      // Download as Excel (.xlsx) instead of CSV
+      const res = await api.get("/api/export/balance-sheet/excel", { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement("a");
-      a.href = url; a.download = `poketbook_backup_${new Date().toISOString().split("T")[0]}.csv`;
+      a.href = url; a.download = `poketbook_backup_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("CSV backup downloaded!");
-    } catch { toast.error("Download failed"); }
+      toast.success("Excel backup downloaded!");
+    } catch (err) { toast.error("Download failed"); }
   };
 
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
@@ -211,11 +223,9 @@ const Dashboard = () => {
                   <Bell size={16} color="#fff" />
                 </div>
                 <div>
-                  <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>Email Backup</p>
+                  <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>Excel Backup</p>
                   <p style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
-                    {backupSettings?.backup_frequency && backupSettings.backup_frequency !== "off"
-                      ? `${backupSettings.backup_frequency} • ${backupSettings.backup_email}`
-                      : "Not scheduled — set in Statement page"}
+                    Download full ledger data as Excel file
                   </p>
                 </div>
               </div>
@@ -226,8 +236,8 @@ const Dashboard = () => {
 
             {/* CSV Download */}
             <button onClick={handleDownloadCSV}
-              style={{ width: "100%", background: "var(--bg-page)", border: "0.5px solid var(--border)", borderRadius: "8px", padding: "9px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer", color: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <Download size={14} /> Download CSV Backup
+              style={{ width: "100%", background: "#16A34A", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+              <Download size={14} /> Download Excel Backup
             </button>
           </div>
         </div>

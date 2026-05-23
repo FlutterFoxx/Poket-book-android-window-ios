@@ -143,7 +143,9 @@ const LedgerPage = () => {
 
       if (e.key === "F1") {
         e.preventDefault();
-        partySelectRef.current?.focus();
+        // Navigate to Party Management to create a new party
+        navigate("/parties?new=1");
+        toast.info("New Party — Add karein", { duration: 1500 });
 
       } else if (e.key === "F4") {
         e.preventDefault();
@@ -528,7 +530,7 @@ const LedgerPage = () => {
       {/* ── Keyboard Shortcuts Legend — desktop only ──────────────── */}
       <div className="hidden md:flex flex-shrink-0 items-center gap-3 px-4 py-1 text-xs text-stone-500 border-b border-stone-200" style={{ background: "#FAFAF9" }}>
         <span className="font-bold text-stone-600 mr-1">Shortcuts:</span>
-        {[["F1","Party Select"],["F4","Edit Entry"],["F5","Tally Lock"],["ESC","Close Modal"],["↑↓","Navigate Fields"]].map(([k,v]) => (
+        {[["F1","New Party"],["F4","Edit Entry"],["F5","Tally Lock"],["ESC","Close Modal"],["↑↓","Navigate Rows"]].map(([k,v]) => (
           <span key={k} className="flex items-center gap-1">
             <kbd className="bg-stone-200 text-stone-700 font-mono font-bold px-1.5 py-0.5 rounded text-xs border border-stone-300">{k}</kbd>
             <span className="text-stone-500">{v}</span>
@@ -685,7 +687,7 @@ const LedgerPage = () => {
                     const bl = balLabel(e.balance);
                     const isSelected = selectedEntries.has(e.id);
                     const isFocused = focusedRowIdx === i;
-                    const rowBg = isFocused ? "#0A1628" : isSelected ? "#c7d7f0" : (i % 2 === 0 ? "#FFE8CC" : "#FFDAB0");
+                    const rowBg = isFocused ? "#FEF3C7" : isSelected ? "#c7d7f0" : (i % 2 === 0 ? "#FFE8CC" : "#FFDAB0");
                     return (
                       <tr key={e.id}
                         onClick={() => setFocusedRowIdx(i)}

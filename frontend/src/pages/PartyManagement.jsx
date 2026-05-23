@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ const EMPTY = { name: "", mobile: "", address: "" };
 
 const PartyManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -34,6 +35,13 @@ const PartyManagement = () => {
 
   useEffect(() => { loadParties(); }, [loadParties]); // loadParties is stable (useCallback with [])
   useEffect(() => { if (showForm) setTimeout(() => nameRef.current?.focus(), 100); }, [showForm]);
+
+  // Auto-open form when navigated with ?new=1 (from F1 shortcut in Ledger)
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get("new") === "1") {
+      setShowForm(true); setEditParty(null); setFormData(EMPTY);
+    }
+  }, [location.search]);
 
   const openAdd  = () => { setEditParty(null); setFormData(EMPTY); setShowForm(true); };
   const openEdit = (p) => { setEditParty(p); setFormData({ name: p.name, mobile: p.mobile || "", address: p.address || "" }); setShowForm(true); };
