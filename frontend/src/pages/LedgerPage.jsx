@@ -139,6 +139,9 @@ const LedgerPage = () => {
   useEffect(() => { if (selectedId) { fetchEntries(selectedId); setVisibleCount(80); } }, [selectedId, fetchEntries]);
   useEffect(() => { setFastEntry(p => ({ ...p, partyId: "" })); setFocusedRowIdx(-1); }, [selectedId]);
 
+  // unlocked count — declared here (before keyboard useEffect) to prevent TDZ in production
+  const unlocked = useMemo(() => entries.filter((e) => !e.is_locked).length, [entries]);
+
   // ── Global keyboard shortcuts ──────────────────────────────────────────────
   useEffect(() => {
     const FORM_REFS = [partySelectRef, naamRef, jamaRef, narrationRef, saveRef];
@@ -414,7 +417,7 @@ const LedgerPage = () => {
   };
 
   // ── Memoised computations (avoid re-calculating on every render) ──────────
-  const unlocked = useMemo(() => entries.filter((e) => !e.is_locked).length, [entries]);
+  // unlocked moved to before keyboard shortcuts useEffect
   const totalNaam = useMemo(
     () => entries.reduce((s, e) => s + (e.naam || 0), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 }),
     [entries]
