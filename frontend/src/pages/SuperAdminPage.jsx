@@ -183,6 +183,8 @@ const SuperAdminPage = () => {
   const [dataLoading, setDataLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [activePlan, setActivePlan] = useState({});
+  const [resetUserId, setResetUserId] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
 
   // ALL hooks must be called before any conditional returns
   const fetchData = useCallback(async () => {
@@ -224,6 +226,19 @@ const SuperAdminPage = () => {
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to update");
+    }
+    setUpdatingId(null);
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword || newPassword.length < 6) { toast.error("Min 6 characters"); return; }
+    setUpdatingId(resetUserId);
+    try {
+      await api.post(`/api/superadmin/users/${resetUserId}/reset-password`, { new_password: newPassword });
+      toast.success("Password reset successfully!");
+      setResetUserId(null); setNewPassword("");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Reset failed");
     }
     setUpdatingId(null);
   };
@@ -347,6 +362,13 @@ const SuperAdminPage = () => {
                         >
                           {updatingId === u.id ? "..." : "Activate"}
                         </button>
+                        <button
+                          onClick={() => { setResetUserId(u.id); setNewPassword(""); }}
+                          className="text-xs bg-amber-600 hover:bg-amber-500 text-white px-2 py-1 rounded transition-colors font-semibold"
+                          title="Reset Password"
+                        >
+                          🔑
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -355,6 +377,35 @@ const SuperAdminPage = () => {
             </table>
           </div>
         </div>
+
+        {/* Reset Password Modal */}
+        {resetUserId && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm">
+              <h3 className="text-white font-bold text-base mb-1">Reset Password</h3>
+              <p className="text-gray-400 text-xs mb-4">
+                {users.find(u => u.id === resetUserId)?.email}
+              </p>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="New password (min 6 chars)"
+                className="w-full bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:border-amber-400"
+              />
+              <div className="flex gap-3">
+                <button onClick={handleResetPassword} disabled={updatingId === resetUserId}
+                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-bold disabled:opacity-50">
+                  {updatingId === resetUserId ? "Resetting..." : "Reset Password"}
+                </button>
+                <button onClick={() => { setResetUserId(null); setNewPassword(""); }}
+                  className="flex-1 py-2 bg-white/10 text-gray-300 rounded-lg text-sm">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

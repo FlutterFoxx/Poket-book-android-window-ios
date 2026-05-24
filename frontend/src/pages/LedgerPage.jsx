@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
+import { saveBlob } from "@/utils/saveFile";
 import { toast } from "sonner";
 import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, MessageCircle, Camera } from "lucide-react";
 
@@ -284,7 +285,7 @@ const LedgerPage = () => {
     setWaModal(true);
   };
 
-  // ── WhatsApp PDF — mobile-safe (no window.open after async) ─────────────────
+  // ── WhatsApp / PDF Share ─────────────────────────────────────────────────────
   const handleWaSend = async () => {
     setWaModal(false);
     setSharingPdf(true);
@@ -292,39 +293,17 @@ const LedgerPage = () => {
     try {
       const params = waMode === "range" && waFrom && waTo ? `?start_date=${waFrom}&end_date=${waTo}` : "";
       const res = await api.get(`/api/export/ledger/${selectedId}/pdf${params}`, { responseType: "blob" });
-      const pdfBlob = res.data;
-      if (!pdfBlob || pdfBlob.size < 100) throw new Error("PDF empty — try again");
       toast.dismiss(toastId);
-
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_${waTo}` : "Latest"}.pdf`;
-      const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
-
-      // Web Share with file — works on Android/iOS, user picks WhatsApp from share sheet
-      if (navigator.canShare?.({ files: [pdfFile] })) {
-        try {
-          await navigator.share({ files: [pdfFile], title: fileName });
-          setSharingPdf(false);
-          return;
-        } catch (e) {
-          if (e.name === "AbortError") { setSharingPdf(false); return; }
-        }
-      }
-
-      // Fallback: download PDF + toast instructions (no window.open — blocked after async)
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-      toast.success("PDF downloaded! Open WhatsApp → Attach file → select the PDF", { duration: 5000 });
+      await saveBlob(res.data, fileName, "application/pdf");
     } catch (err) {
       toast.dismiss(toastId);
-      if (err?.name !== "AbortError") toast.error(err.message || "PDF failed — try again", { duration: 2500 });
+      if (err?.name !== "AbortError") toast.error("PDF failed — check connection", { duration: 2500 });
     }
     setSharingPdf(false);
   };
 
-  // ── Screenshot — mobile-safe (Web Share → download, no window.open after async) ──
+  // ── Screenshot ───────────────────────────────────────────────────────────────
   const handleScreenshot = async () => {
     const el = tableContainerRef.current;
     if (!el) return;
@@ -332,42 +311,21 @@ const LedgerPage = () => {
     try {
       const hidden = document.querySelectorAll(".no-screenshot");
       hidden.forEach(h => { h.style.visibility = "hidden"; });
-
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(el, {
         useCORS: true, backgroundColor: "#fff", scale: 1.5, logging: false,
         windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
       });
       hidden.forEach(h => { h.style.visibility = ""; });
-
-      const dateStr = new Date().toISOString().split("T")[0];
-      const fileName = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) { toast.dismiss(toastId); toast.error("Capture failed"); return; }
-        const file = new File([blob], fileName, { type: "image/png" });
-
-        // Web Share with file — best for all mobile devices
-        if (navigator.canShare?.({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: fileName });
-            toast.dismiss(toastId);
-            toast.success("Screenshot shared!", { duration: 1500 });
-            return;
-          } catch (e) {
-            if (e.name === "AbortError") { toast.dismiss(toastId); return; }
-          }
-        }
-
-        // Direct download — works on desktop + Android (no window.open needed)
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); URL.revokeObjectURL(url);
-        toast.dismiss(toastId);
-        toast.success("Screenshot saved!", { duration: 1500 });
-      }, "image/png");
+      toast.dismiss(toastId);
+      await new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+          const dateStr = new Date().toISOString().split("T")[0];
+          const fileName = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
+          await saveBlob(blob, fileName, "image/png");
+          resolve();
+        }, "image/png");
+      });
     } catch (err) {
       document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
@@ -376,41 +334,22 @@ const LedgerPage = () => {
     }
   };
 
-  // ── Print PDF — mobile-safe ─────────────────────────────────────────────────
+  // ── Print PDF ────────────────────────────────────────────────────────────────
   const handlePrint = async () => {
     if (!partyInfo || !selectedId) return;
     const toastId = toast.loading("Generating PDF...");
     try {
       const res = await api.get(`/api/export/ledger/${selectedId}/pdf`, { responseType: "blob" });
-      const blob = res.data;
-      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
       toast.dismiss(toastId);
-
-      const pdfFile = new File([blob], fileName, { type: "application/pdf" });
-
-      // Try Web Share with PDF file — opens native share/print on mobile
-      if (navigator.canShare?.({ files: [pdfFile] })) {
-        try {
-          await navigator.share({ files: [pdfFile], title: fileName });
-          return;
-        } catch (e) {
-          if (e.name === "AbortError") return;
-        }
-      }
-
-      // Desktop: download PDF (user opens in browser for printing)
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-      toast.success("PDF downloaded! Open file to print", { duration: 2000 });
+      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
+      await saveBlob(res.data, fileName, "application/pdf");
     } catch (err) {
       toast.dismiss(toastId);
       if (process.env.NODE_ENV === "development") console.error("PDF failed:", err);
       toast.error("PDF generation failed", { duration: 2000 });
     }
   };
+
 
   const handleEditSave = async () => {
     setSaving(true);

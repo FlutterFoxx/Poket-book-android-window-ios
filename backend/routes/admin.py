@@ -6,7 +6,7 @@ from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import uuid as uuid_lib
-from core import (db, get_current_user, SubscriptionUpdate, SUBSCRIPTION_DAYS)
+from core import (db, get_current_user, SubscriptionUpdate, SUBSCRIPTION_DAYS, hash_password)
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api")
@@ -330,3 +330,27 @@ async def security_audit(current_user: dict = Depends(get_current_user)):
         "recent_security_events": audit[:20],
     }
 
+
+@router.post("/superadmin/users/{user_id}/reset-password")
+async def reset_user_password(user_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    """SuperAdmin resets any user's password directly."""
+    _require_superadmin(current_user)
+    body = await request.json()
+    new_password = body.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"password_hash": hash_password(new_password)}}
+    )
+    await db.audit_logs.insert_one({
+        "event": "superadmin_password_reset",
+        "target_user_id": user_id,
+        "target_email": user.get("email"),
+        "admin_id": str(current_user["_id"]),
+        "timestamp": datetime.now(timezone.utc),
+    })
+    return {"message": f"Password reset for {user.get('email')}"}

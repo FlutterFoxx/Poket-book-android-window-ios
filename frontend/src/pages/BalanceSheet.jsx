@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
+import { saveBlob } from "@/utils/saveFile";
 import { toast } from "sonner";
 import { RefreshCw, Printer, FileSpreadsheet, Camera } from "lucide-react";
 
@@ -14,50 +15,24 @@ const BalanceSheet = () => {
   const handleScreenshot = async () => {
     const el = contentRef.current;
     if (!el) return;
-    const toastId = toast.loading("Capturing screenshot...");
+    const toastId = toast.loading("Capturing...");
     try {
       const hidden = document.querySelectorAll(".no-screenshot");
       hidden.forEach(h => { h.style.visibility = "hidden"; });
-
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(el, {
         useCORS: true, backgroundColor: "#fff", scale: 1.5, logging: false,
         windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
       });
       hidden.forEach(h => { h.style.visibility = ""; });
-      // NOTE: Do NOT dismiss toast here — dismiss only after actual save
-
-      const fileName = `balance-sheet_${new Date().toISOString().split("T")[0]}.png`;
-      const dataUrl = canvas.toDataURL("image/png");
-
-      const saveViaDownload = () => {
-        const a = document.createElement("a");
-        a.href = dataUrl; a.download = fileName;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        toast.dismiss(toastId);
-        toast.success("Screenshot saved!", { duration: 1500 });
-      };
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) { saveViaDownload(); return; }
-        const file = new File([blob], fileName, { type: "image/png" });
-
-        // Strategy 1: Web Share with file (Android Chrome / iOS 15+)
-        if (navigator.canShare?.({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: fileName });
-            toast.dismiss(toastId);
-            toast.success("Screenshot shared!", { duration: 1500 });
-            return;
-          } catch (e) {
-            if (e.name === "AbortError") { toast.dismiss(toastId); return; }
-          }
-        }
-
-        // Direct download — works on all devices (no window.open needed)
-        saveViaDownload();
-      }, "image/png");
-
+      toast.dismiss(toastId);
+      await new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+          const fileName = `balance-sheet_${new Date().toISOString().split("T")[0]}.png`;
+          await saveBlob(blob, fileName, "image/png");
+          resolve();
+        }, "image/png");
+      });
     } catch (err) {
       document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
       toast.dismiss(toastId);
@@ -82,32 +57,15 @@ const BalanceSheet = () => {
 
   const fmt = (n) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Math.abs(n || 0));
 
-  // PDF Print — mobile-safe: Web Share → download (no window.open after async)
+  // PDF Print
   const handlePrint = async () => {
     if (!data) return;
     const toastId = toast.loading("Generating PDF...");
     try {
       const res = await api.get("/api/export/balance-sheet/pdf", { responseType: "blob" });
-      const blob = res.data;
-      const fileName = `PoketBook_BalanceSheet_${new Date().toISOString().split("T")[0]}.pdf`;
       toast.dismiss(toastId);
-
-      // Try Web Share with PDF file (opens print/share on mobile)
-      const pdfFile = new File([blob], fileName, { type: "application/pdf" });
-      if (navigator.canShare?.({ files: [pdfFile] })) {
-        try {
-          await navigator.share({ files: [pdfFile], title: fileName });
-          return;
-        } catch (e) { if (e.name === "AbortError") return; }
-      }
-
-      // Desktop / fallback: download PDF
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-      toast.success("PDF downloaded!", { duration: 1500 });
+      const fileName = `PoketBook_BalanceSheet_${new Date().toISOString().split("T")[0]}.pdf`;
+      await saveBlob(res.data, fileName, "application/pdf");
     } catch (err) {
       toast.dismiss(toastId);
       if (process.env.NODE_ENV === "development") console.error("PDF failed:", err);
