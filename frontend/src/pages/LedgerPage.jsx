@@ -186,9 +186,16 @@ const LedgerPage = () => {
           const downIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
           if (downIdx >= 0 && downIdx < FORM_REFS.length - 1) FORM_REFS[downIdx + 1].current?.focus();
         } else if (!editEntry) {
-          // Navigate table rows when not in an input and no modal open
+          // Navigate table rows — scroll into view
           e.preventDefault();
-          setFocusedRowIdx(prev => Math.min(prev + 1, entries.length - 1));
+          setFocusedRowIdx(prev => {
+            const next = Math.min(prev + 1, entries.length - 1);
+            requestAnimationFrame(() => {
+              const row = document.querySelector(`[data-row-idx="${next}"]`);
+              row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            });
+            return next;
+          });
         }
 
       } else if (e.key === "ArrowUp") {
@@ -197,8 +204,16 @@ const LedgerPage = () => {
           const upIdx = FORM_REFS.findIndex(r => r.current === document.activeElement);
           if (upIdx > 0) FORM_REFS[upIdx - 1].current?.focus();
         } else if (!editEntry) {
+          // Navigate table rows — scroll into view
           e.preventDefault();
-          setFocusedRowIdx(prev => Math.max(prev - 1, 0));
+          setFocusedRowIdx(prev => {
+            const next = Math.max(prev - 1, 0);
+            requestAnimationFrame(() => {
+              const row = document.querySelector(`[data-row-idx="${next}"]`);
+              row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            });
+            return next;
+          });
         }
       }
     };
@@ -261,7 +276,8 @@ const LedgerPage = () => {
       setFastEntry({ ...EMPTY_FAST, partyId: "", date: today() });
       fetchEntries(selectedId);
       fetchParties(); // Refresh party balances in dropdown
-      setTimeout(() => naamRef.current?.focus(), 100);
+      // After save: focus party selector so user can immediately select next party
+      setTimeout(() => partySelectRef.current?.focus(), 100);
     } catch (err) { toast.error(err.response?.data?.detail || "Entry save nahi hui", { duration: 1500 }); }
     setSaving(false);
     savingLockRef.current = false;
@@ -666,6 +682,7 @@ const LedgerPage = () => {
                     return (
                       <tr key={e.id}
                         onClick={() => setFocusedRowIdx(i)}
+                        data-row-idx={i}
                         style={{ background: rowBg, outline: isFocused ? "2px solid #F59E0B" : "none", cursor: "pointer" }}
                         className="border-b border-amber-300"
                         data-testid={`ledger-row-${e.id}`}>
