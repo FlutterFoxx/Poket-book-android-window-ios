@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LangProvider } from "@/contexts/LangContext";
 import { Toaster } from "sonner";
+import { useEffect } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Navbar from "@/components/Navbar";
@@ -94,5 +95,16 @@ function AppInner() {
 }
 
 export default function App() {
+  // Apply saved font settings on load
+  useEffect(() => {
+    fetch(`${process.env.REACT_APP_BACKEND_URL || ""}/api/superadmin/font-settings`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.font_family) document.documentElement.style.setProperty("--font-body", `${d.font_family}, Arial, sans-serif`);
+        if (d.font_family) document.documentElement.style.setProperty("--font-heading", `${d.font_family}, Arial, sans-serif`);
+        if (d.font_size) document.documentElement.style.setProperty("--app-font-size", `${d.font_size}px`);
+      })
+      .catch(() => {});
+  }, []);
   return <ErrorBoundary><LangProvider><AppInner /></LangProvider></ErrorBoundary>;
 }

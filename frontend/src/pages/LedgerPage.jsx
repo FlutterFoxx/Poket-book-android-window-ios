@@ -294,6 +294,7 @@ const LedgerPage = () => {
       const params = waMode === "range" && waFrom && waTo ? `?start_date=${waFrom}&end_date=${waTo}` : "";
       const res = await api.get(`/api/export/ledger/${selectedId}/pdf${params}`, { responseType: "blob" });
       toast.dismiss(toastId);
+      if (!res.data || res.data.size === 0) throw new Error("PDF empty — try again");
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_${waTo}` : "Latest"}.pdf`;
       await saveBlob(res.data, fileName, "application/pdf");
     } catch (err) {
@@ -322,6 +323,7 @@ const LedgerPage = () => {
         canvas.toBlob(async (blob) => {
           const dateStr = new Date().toISOString().split("T")[0];
           const fileName = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
+          if (!blob || blob.size === 0) { toast.error("Screenshot capture failed — try again"); resolve(); return; }
           await saveBlob(blob, fileName, "image/png");
           resolve();
         }, "image/png");
@@ -341,6 +343,7 @@ const LedgerPage = () => {
     try {
       const res = await api.get(`/api/export/ledger/${selectedId}/pdf`, { responseType: "blob" });
       toast.dismiss(toastId);
+      if (!res.data || res.data.size === 0) throw new Error("PDF empty — try again");
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
       await saveBlob(res.data, fileName, "application/pdf");
     } catch (err) {

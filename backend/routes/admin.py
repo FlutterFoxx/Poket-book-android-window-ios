@@ -354,3 +354,32 @@ async def reset_user_password(user_id: str, request: Request, current_user: dict
         "timestamp": datetime.now(timezone.utc),
     })
     return {"message": f"Password reset for {user.get('email')}"}
+
+# ─── App Font Settings ───────────────────────────────────────────────────────
+
+@router.get("/superadmin/font-settings")
+async def get_font_settings(current_user: dict = Depends(get_current_user)):
+    """Get current app-wide font settings. Public read so app can apply on load."""
+    doc = await db.app_settings.find_one({"key": "font"}, {"_id": 0})
+    if not doc:
+        return {"font_family": "Arial", "font_size": 13}
+    return {"font_family": doc.get("font_family", "Arial"), "font_size": doc.get("font_size", 13)}
+
+@router.post("/superadmin/font-settings")
+async def save_font_settings(request: Request, current_user: dict = Depends(get_current_user)):
+    """Save app-wide font settings. Superadmin only."""
+    _require_superadmin(current_user)
+    body = await request.json()
+    font_family = body.get("font_family", "Arial")
+    font_size = int(body.get("font_size", 13))
+    allowed_fonts = ["Arial", "Calibri", "Roboto", "Inter", "Poppins"]
+    if font_family not in allowed_fonts:
+        raise HTTPException(400, f"Font must be one of: {', '.join(allowed_fonts)}")
+    if not (10 <= font_size <= 20):
+        raise HTTPException(400, "Font size must be between 10 and 20")
+    await db.app_settings.update_one(
+        {"key": "font"},
+        {"$set": {"key": "font", "font_family": font_family, "font_size": font_size}},
+        upsert=True,
+    )
+    return {"message": "Font settings saved", "font_family": font_family, "font_size": font_size}

@@ -56,9 +56,9 @@
   --radius-pill: 20px;
 
   /* Typography */
-  --font-body:    'Work Sans', system-ui, -apple-system, sans-serif;
-  --font-heading: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+  --font-body:    Arial, 'Calibri', 'Work Sans', system-ui, sans-serif;
+  --font-heading: Arial, 'Calibri', system-ui, sans-serif;
+  --font-mono:    'Calibri', Arial, 'IBM Plex Mono', 'Courier New', monospace;
 }
 
 /* ── Base Reset ─────────────────────────────────────────────── */
@@ -207,8 +207,18 @@ code, pre, .font-mono { font-family: var(--font-mono); }
 ::-webkit-scrollbar-corner { background: #0A1628; }
 
 /* ── Ledger table ────────────────────────────────────────────── */
-.ledger-table { width: 100%; border-collapse: collapse; }
+.ledger-table { width: 100%; border-collapse: collapse; font-family: Arial, Calibri, sans-serif; font-size: 13px; }
 .ledger-table tbody tr:hover { background: var(--bg-page); }
+/* Compact ledger rows — more entries visible without scrolling */
+.ledger-table td, .ledger-table th { padding: 3px 6px; line-height: 1.4; }
+/* Right-align numeric columns: credit, debit, balance */
+.ledger-table td.num, .ledger-table th.num { text-align: right; font-family: Arial, Calibri, monospace; font-size: 13px; font-weight: 600; }
+/* Date column: larger font */
+.ledger-table td.date-col { font-size: 19px; font-weight: 600; font-family: Arial, Calibri, sans-serif; white-space: nowrap; }
+/* Consistent size for all numeric values */
+.ledger-table .credit-val, .ledger-table .debit-val, .ledger-table .balance-val {
+  font-size: 13px; font-family: Arial, Calibri, monospace; font-weight: 700; text-align: right;
+}
 
 /* ── Fast entry row ──────────────────────────────────────────── */
 .fast-entry-row input { font-family: var(--font-mono); outline: none; }

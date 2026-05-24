@@ -3,12 +3,95 @@ import { Link, Navigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Users, Shield, Activity, RefreshCw, CheckCircle, XCircle, ChevronDown, Bot, AlertTriangle, Zap, History } from "lucide-react";
+import { Users, Shield, Activity, RefreshCw, CheckCircle, XCircle, ChevronDown, Bot, AlertTriangle, Zap, History, Type } from "lucide-react";
 
 const PLANS = ["trial", "weekly", "monthly", "yearly"];
 const PLAN_DAYS = { trial: 7, weekly: 7, monthly: 30, yearly: 365 };
+const FONT_OPTIONS = ["Arial", "Calibri", "Roboto", "Inter", "Poppins"];
+const SIZE_OPTIONS = [12, 13, 14];
 
-// ── AI Self-Healing Panel ──────────────────────────────────────────────────────
+// ── Font Settings Panel ───────────────────────────────────────────────────────
+const FontSettingsPanel = () => {
+  const [fontFamily, setFontFamily] = useState("Arial");
+  const [fontSize, setFontSize] = useState(13);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get("/api/superadmin/font-settings").then(r => {
+      setFontFamily(r.data.font_family || "Arial");
+      setFontSize(r.data.font_size || 13);
+    }).catch(() => {});
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.post("/api/superadmin/font-settings", { font_family: fontFamily, font_size: fontSize });
+      // Apply immediately to document
+      document.documentElement.style.setProperty("--font-body", `${fontFamily}, Arial, sans-serif`);
+      document.documentElement.style.setProperty("--font-heading", `${fontFamily}, Arial, sans-serif`);
+      document.documentElement.style.setProperty("--app-font-size", `${fontSize}px`);
+      toast.success(`Font updated: ${fontFamily} ${fontSize}pt`);
+    } catch (err) { toast.error(err.response?.data?.detail || "Save failed"); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="rounded-2xl border border-white/10 overflow-hidden mb-8" style={{ background: "#111827" }}>
+      <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#0891B2" }}>
+          <Type size={16} color="#fff" />
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-white">Font Settings</h2>
+          <p className="text-xs text-gray-500">Global font applied across all screens</p>
+        </div>
+      </div>
+      <div className="p-6 space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Font Family</label>
+            <select value={fontFamily} onChange={e => setFontFamily(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-cyan-400"
+              style={{ fontFamily: fontFamily }}>
+              {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Base Font Size</label>
+            <div className="flex gap-2">
+              {SIZE_OPTIONS.map(s => (
+                <button key={s} onClick={() => setFontSize(s)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold border transition-all ${fontSize === s ? "bg-cyan-600 border-cyan-500 text-white" : "bg-white/5 border-white/10 text-gray-300 hover:border-white/30"}`}>
+                  {s}pt
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div className="rounded-lg p-4 border border-white/10" style={{ background: "#1E293B" }}>
+          <p className="text-xs text-gray-500 mb-2 uppercase font-bold">Live Preview</p>
+          <div style={{ fontFamily: fontFamily, fontSize: `${fontSize}px`, color: "#f1f5f9", lineHeight: 1.6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "8px", fontWeight: 700, borderBottom: "1px solid #334155", paddingBottom: "6px", marginBottom: "6px" }}>
+              <span>Party Name</span><span style={{ textAlign: "right" }}>Credit</span><span style={{ textAlign: "right" }}>Debit</span><span style={{ textAlign: "right" }}>Balance</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "8px" }}>
+              <span>Ramesh Kumar</span><span style={{ textAlign: "right", color: "#ef4444" }}>₹5,000</span><span style={{ textAlign: "right" }}>—</span><span style={{ textAlign: "right", color: "#22c55e" }}>₹5,000</span>
+            </div>
+          </div>
+        </div>
+
+        <button onClick={save} disabled={saving}
+          className="w-full py-3 rounded-xl text-white font-bold text-sm disabled:opacity-50 transition-all"
+          style={{ background: saving ? "#374151" : "#0891B2" }}>
+          {saving ? "Saving..." : "Apply Font Globally"}
+        </button>
+      </div>
+    </div>
+  );
+};
 const AIHealPanel = () => {
   const [issue, setIssue] = useState("");
   const [context, setContext] = useState("");
@@ -300,6 +383,9 @@ const SuperAdminPage = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Font Settings */}
+        <FontSettingsPanel />
+
         {/* AI Self-Healing Agent */}
         <AIHealPanel />
 

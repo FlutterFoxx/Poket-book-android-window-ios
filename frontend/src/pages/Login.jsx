@@ -71,7 +71,16 @@ const Login = () => {
   // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
   const handleGoogleLogin = () => {
     const redirectUrl = window.location.origin + "/";
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    // Capacitor/WebView: must use _system to open Chrome Custom Tabs (not WebView)
+    // — avoids Google's "disallowed_useragent" Error 403
+    const isCapacitor = window.Capacitor?.isNativePlatform?.();
+    const isWebView = /wv|WebView/i.test(navigator.userAgent);
+    if (isCapacitor || isWebView) {
+      window.open(authUrl, "_system");
+    } else {
+      window.open(authUrl, "_blank", "noopener,noreferrer");
+    }
   };
 
   const handleEmailSubmit = async (e) => {
