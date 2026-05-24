@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LangToggle } from "@/contexts/LangContext";
 import {
   LayoutDashboard, Users, BookOpen, Scale, FileText,
-  LogOut, ChevronDown, Menu, X, Settings, Trash2,
+  LogOut, ChevronDown, Menu, X, Settings, Trash2, Shield, Settings2,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 
@@ -61,6 +61,27 @@ const UserMenu = ({ user, logout, menuRef }) => {
               </p>
             )}
           </div>
+
+          {/* SuperAdmin Panel link — only for admin/superadmin roles */}
+          {["superadmin", "admin"].includes(user?.role) && (
+            <a
+              href="/superadmin"
+              onClick={() => setOpen(false)}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50 transition-colors font-semibold"
+              data-testid="superadmin-link"
+            >
+              <Shield size={14} /> SuperAdmin Panel
+            </a>
+          )}
+
+          <a
+            href="/settings"
+            onClick={() => setOpen(false)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+          >
+            <Settings2 size={14} /> Settings
+          </a>
+
           <button
             onClick={logout}
             data-testid="logout-btn"

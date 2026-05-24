@@ -608,6 +608,8 @@ const LandingPage = () => {
               <Link to="/terms" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">Terms & Conditions</Link>
               <span className="text-gray-700 text-xs">|</span>
               <Link to="/contact" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">Contact Us</Link>
+              <span className="text-gray-700 text-xs">|</span>
+              <Link to="/superadmin" className="text-purple-500 hover:text-purple-400 text-xs transition-colors">Admin Panel</Link>
             </div>
             <p className="text-gray-600 text-xs">© {new Date().getFullYear()} poketbook by Flutter Fox. All Rights Reserved. | poketbook.in</p>
           </div>
