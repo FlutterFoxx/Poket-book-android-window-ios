@@ -3,96 +3,76 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
+import { downloadBlob } from "@/utils/saveFile";
 import { toast } from "sonner";
-import { Plus, ArrowRight, IndianRupee, Cloud, Bell, Download, RefreshCw, CheckCircle, Loader } from "lucide-react";
+import { Plus, ArrowRight, IndianRupee, Download, RefreshCw, CheckCircle, Cloud } from "lucide-react";
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [parties, setParties] = useState([]);
-  const [sheetsStatus, setSheetsStatus] = useState(null);
-  const [backupSettings, setBackupSettings] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [backing, setBacking] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [driveStatus, setDriveStatus] = useState(null); // null | {connected, last_backup}
+  const [connectingDrive, setConnectingDrive] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [partiesRes, statusRes, settingsRes] = await Promise.all([
+      const [partiesRes, driveRes] = await Promise.all([
         api.get("/api/parties"),
-        api.get("/api/export/sheets-status").catch(() => ({ data: null })),
-        api.get("/api/backup/settings").catch(() => ({ data: null })),
+        api.get("/api/backup/drive-status").catch(() => ({ data: null })),
       ]);
       setParties(partiesRes.data.slice(0, 8));
-      setSheetsStatus(statusRes.data);
-      setBackupSettings(settingsRes.data);
+      setDriveStatus(driveRes.data);
     } catch (err) {
-      if (process.env.NODE_ENV === "development") { console.error(err); }
+      if (process.env.NODE_ENV === "development") console.error(err);
     }
     setLoading(false);
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Refresh status when window regains focus (user returns from Google OAuth tab)
+  // Re-check Drive status when user returns from OAuth tab
   useEffect(() => {
     const onFocus = () => {
-      api.get("/api/export/sheets-status")
-        .then(r => { if (r.data) setSheetsStatus(r.data); })
-        .catch(() => {});
+      api.get("/api/backup/drive-status").then(r => { if (r.data) setDriveStatus(r.data); }).catch(() => {});
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  const handleConnect = async () => {
-    setConnecting(true);
+  const handleConnectDrive = async () => {
+    setConnectingDrive(true);
     try {
       const res = await api.get("/api/oauth/sheets/connect");
-      if (res.data.configured && res.data.url) {
-        const isNative = window.Capacitor?.isNativePlatform?.() || navigator.userAgent?.includes("wv");
-        if (isNative) {
-          // Try _system first (Chrome Custom Tabs), then _blank fallback
-          const w = window.open(res.data.url, "_system");
-          if (!w) window.open(res.data.url, "_blank");
-        } else {
-          // Web: open in new tab to avoid losing app state
-          window.open(res.data.url, "_blank", "noopener,noreferrer");
-        }
-        toast.info("Google login page opened — complete login and return here", { duration: 4000 });
+      if (res.data.url) {
+        const isNative = window.Capacitor?.isNativePlatform?.() || /wv|WebView/i.test(navigator.userAgent);
+        window.open(res.data.url, isNative ? "_system" : "_blank", "noopener,noreferrer");
+        toast.info("Complete Google sign-in and return here", { duration: 4000 });
       } else {
-        toast.error(res.data.error || "Google Sheets not configured");
+        toast.error(res.data.error || "Google Drive not configured");
       }
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Connection failed — try again");
-    }
-    setConnecting(false);
+    } catch { toast.error("Connection failed"); }
+    setConnectingDrive(false);
   };
 
-  const handleBackupNow = async () => {
-    if (!sheetsStatus?.connected) { toast.error("Connect Google Sheets first"); return; }
-    setBacking(true);
+  const handleSyncNow = async () => {
+    setSyncing(true);
     try {
-      const res = await api.post("/api/export/google-sheets-backup");
-      toast.success(`Backup complete! ${res.data.parties_count} parties synced`);
+      await api.post("/api/backup/drive-sync");
+      toast.success("Google Drive backup updated!", { duration: 2000 });
       fetchData();
-    } catch (err) { toast.error(err.response?.data?.detail || "Backup failed"); }
-    setBacking(false);
+    } catch { toast.error("Sync failed — try again"); }
+    setSyncing(false);
   };
 
   const handleDownloadCSV = async () => {
     try {
-      // Download as Excel (.xlsx) instead of CSV
-      const res = await api.get("/api/export/balance-sheet/excel", { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement("a");
-      a.href = url; a.download = `poketbook_backup_${new Date().toISOString().split("T")[0]}.xlsx`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("Excel backup downloaded!");
-    } catch (err) { toast.error("Download failed"); }
+      const res = await api.get("/api/export/csv-backup", { responseType: "blob" });
+      const date = new Date().toISOString().split("T")[0];
+      await downloadBlob(res.data, `PoketBook_Backup_${date}.csv`);
+    } catch { toast.error("Download failed"); }
   };
 
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
@@ -107,13 +87,12 @@ const Dashboard = () => {
   const subColor = subDays !== null && subDays <= 3 ? "#EF4444" : subDays !== null && subDays <= 7 ? "#F59E0B" : "#22C55E";
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-body)" }}>
-
-      {/* ── Header ────────────────────────────────────────────── */}
-      <div style={{ background: "var(--primary-gradient)", padding: "20px 16px 24px" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg-page)" }}>
+      {/* Header */}
+      <div style={{ background: "var(--primary-gradient)", padding: "16px", color: "#fff" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "13px", marginBottom: "4px" }}>{today}</p>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "0 0 2px" }}>{today}</p>
             <h1 style={{ color: "#fff", fontSize: "22px", fontWeight: 600, fontFamily: "var(--font-heading)" }}>
               {greeting}, {user?.name?.split(" ")[0]} 👋
             </h1>
@@ -126,28 +105,6 @@ const Dashboard = () => {
 
       <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
 
-        {/* ── Gmail / Google Sheets Connect Banner ─────────────── */}
-        {!sheetsStatus?.connected && (
-          <div style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)", border: "1px solid #4285F4", borderRadius: "12px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ width: 40, height: 40, borderRadius: "10px", background: "#4285F4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#fff" opacity="0.9"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#fff" opacity="0.8"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#fff" opacity="0.7"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#fff" opacity="0.9"/>
-              </svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>Connect Google to backup your data</p>
-              <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>Sync ledger to Google Sheets & get email reports automatically</p>
-            </div>
-            <button onClick={handleConnect} disabled={connecting}
-              style={{ background: "#4285F4", border: "none", borderRadius: "8px", padding: "8px 14px", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
-              {connecting ? "..." : "Connect"}
-            </button>
-          </div>
-        )}
-
         {/* ── Quick Actions ─────────────────────────────────────── */}
         <div style={{ display: "flex", gap: "10px" }}>
           <Link to="/parties" style={{ flex: 1, background: "var(--primary)", color: "#fff", border: "none", borderRadius: "10px", padding: "12px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontWeight: 600, fontSize: "14px", textDecoration: "none", justifyContent: "center" }}>
@@ -158,14 +115,12 @@ const Dashboard = () => {
           </Link>
         </div>
 
-        {/* ── Subscription Status ───────────────────────────────── */}
+        {/* ── Subscription Status ─────────────────────────────── */}
         {sub && (
-          <div className="pk-card" style={{ borderLeft: `4px solid ${subColor}`, padding: "12px 16px" }} data-testid="subscription-card">
+          <div className="pk-card" style={{ borderLeft: `4px solid ${subColor}`, padding: "12px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
-                  {subType.toUpperCase()} PLAN
-                </p>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>{subType.toUpperCase()} PLAN</p>
                 {subDays !== null && subActive ? (
                   <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
                     <span style={{ fontSize: "28px", fontWeight: 800, fontFamily: "var(--font-mono)", color: subColor, lineHeight: 1 }}>{subDays}</span>
@@ -175,134 +130,91 @@ const Dashboard = () => {
                   <p style={{ fontSize: "13px", color: "#EF4444", fontWeight: 600 }}>Expired — Renew now</p>
                 )}
               </div>
-              <div style={{ textAlign: "right" }}>
-                <span style={{ background: subActive ? "#DCFCE7" : "#FEE2E2", color: subActive ? "#166534" : "#991B1B", borderRadius: "20px", padding: "4px 12px", fontSize: "12px", fontWeight: 700 }}>
-                  {subActive ? "Active" : "Expired"}
-                </span>
-                {subDays !== null && subDays <= 7 && subActive && (
-                  <p style={{ fontSize: "11px", color: subColor, marginTop: "6px", fontWeight: 600 }}>Renew soon!</p>
-                )}
-              </div>
+              <span style={{ background: subActive ? "#DCFCE7" : "#FEE2E2", color: subActive ? "#166534" : "#991B1B", borderRadius: "20px", padding: "4px 12px", fontSize: "12px", fontWeight: 700 }}>
+                {subActive ? "Active" : "Expired"}
+              </span>
             </div>
           </div>
         )}
 
-        {/* ── Backup Section ────────────────────────────────────── */}
-        <div className="pk-card">
-          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Cloud size={16} style={{ color: "var(--info)" }} /> Data Backup
-          </h2>
-
-          {/* Google Sheets */}
-          <div style={{ marginBottom: "12px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ width: "32px", height: "32px", background: "#0F9D58", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Cloud size={16} color="#fff" />
-                </div>
-                <div>
-                  <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>Google Sheets</p>
-                  <p style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
-                    {sheetsStatus?.connected
-                      ? (backupSettings?.last_backup ? `Last: ${fmtDate(backupSettings.last_backup)}` : "Connected — backup now")
-                      : "Not connected"}
-                  </p>
-                </div>
-              </div>
-              {sheetsStatus?.connected
-                ? <span className="pk-badge pk-badge--green" style={{ fontSize: "11px" }}>Connected ✓</span>
-                : <span className="pk-badge pk-badge--gray" style={{ fontSize: "11px" }}>Not connected</span>}
+        {/* ── Google Drive CSV Backup ─────────────────────────── */}
+        <div className="pk-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "14px 16px", borderBottom: "0.5px solid var(--border)", display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "8px", background: "#4285F4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Cloud size={18} color="#fff" />
             </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {sheetsStatus?.connected ? (
-                <>
-                  <button onClick={handleBackupNow} disabled={backing}
-                    style={{ flex: 1, background: "#0F9D58", color: "#fff", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", opacity: backing ? 0.6 : 1 }}>
-                    {backing ? <><Loader size={14} className="animate-spin" /> Syncing...</> : <><RefreshCw size={14} /> Sync Now</>}
-                  </button>
-                  {sheetsStatus?.sheet_url && (
-                    <a href={sheetsStatus.sheet_url} target="_blank" rel="noopener noreferrer"
-                      style={{ padding: "9px 14px", fontSize: "13px", fontWeight: 600, color: "#0F9D58", border: "0.5px solid #0F9D58", borderRadius: "8px", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px" }}>
-                      Open ↗
-                    </a>
-                  )}
-                </>
-              ) : (
-                <button onClick={handleConnect} disabled={connecting}
-                  style={{ flex: 1, background: "#0F9D58", color: "#fff", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", opacity: connecting ? 0.6 : 1 }}>
-                  {connecting ? <Loader size={14} className="animate-spin" /> : <Cloud size={14} />}
-                  {connecting ? "Connecting..." : "Connect Google Sheets"}
-                </button>
-              )}
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "14px", fontWeight: 700, margin: 0 }}>Gmail Drive Backup</p>
+              <p style={{ fontSize: "12px", color: "var(--text-tertiary)", margin: "2px 0 0" }}>
+                {driveStatus?.connected
+                  ? `Connected · Last sync: ${fmtDate(driveStatus.last_backup) || "Not yet"}`
+                  : "Auto-saves CSV to Google Drive daily"}
+              </p>
             </div>
+            {driveStatus?.connected && (
+              <CheckCircle size={18} color="#22C55E" />
+            )}
           </div>
-
-          <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: "12px" }}>
-            {/* Auto Email Backup status */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ width: "32px", height: "32px", background: "#EA4335", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Bell size={16} color="#fff" />
-                </div>
-                <div>
-                  <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>Excel Backup</p>
-                  <p style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
-                    Download full ledger data as Excel file
-                  </p>
-                </div>
-              </div>
-              {backupSettings?.backup_frequency && backupSettings.backup_frequency !== "off"
-                ? <span className="pk-badge pk-badge--green" style={{ fontSize: "11px" }}>Active</span>
-                : <span className="pk-badge pk-badge--gray" style={{ fontSize: "11px" }}>Off</span>}
-            </div>
-
-            {/* CSV Download */}
-            <button onClick={handleDownloadCSV}
-              style={{ width: "100%", background: "#16A34A", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <Download size={14} /> Download Excel Backup
-            </button>
+          <div style={{ padding: "12px 16px", display: "flex", gap: "8px" }}>
+            {driveStatus?.connected ? (
+              <>
+                <button onClick={handleSyncNow} disabled={syncing}
+                  style={{ flex: 1, background: "#4285F4", border: "none", borderRadius: "8px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  {syncing ? <><RefreshCw size={13} className="animate-spin" /> Syncing...</> : <><RefreshCw size={13} /> Sync Now</>}
+                </button>
+                <button onClick={handleDownloadCSV}
+                  style={{ flex: 1, background: "var(--bg-page)", border: "0.5px solid var(--border)", borderRadius: "8px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", color: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  <Download size={13} /> Download CSV
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={handleConnectDrive} disabled={connectingDrive}
+                  style={{ flex: 2, background: "#4285F4", border: "none", borderRadius: "8px", padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  {connectingDrive ? "Connecting..." : "Connect Google Drive"}
+                </button>
+                <button onClick={handleDownloadCSV}
+                  style={{ flex: 1, background: "var(--bg-page)", border: "0.5px solid var(--border)", borderRadius: "8px", padding: "10px", fontSize: "12px", fontWeight: 600, cursor: "pointer", color: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
+                  <Download size={12} /> CSV
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* ── Recent Parties ───────────────────────────────────── */}
+        {/* ── Recent Parties ──────────────────────────────────── */}
         <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-            <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-heading)" }}>Recent Parties</h2>
-            <Link to="/parties" style={{ fontSize: "13px", color: "var(--info)", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px", fontWeight: 500 }}>
-              View all <ArrowRight size={13} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+            <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>Recent Parties</p>
+            <Link to="/parties" style={{ fontSize: "12px", color: "var(--dena)", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px" }}>
+              View All <ArrowRight size={12} />
             </Link>
           </div>
-
           {loading ? (
             Array(3).fill(0).map((_, i) => (
               <div key={`skeleton-party-${i}`} className="pk-card" style={{ height: "70px", marginBottom: "10px", background: "var(--border-light)" }} />
             ))
           ) : parties.length === 0 ? (
-            <div className="pk-card" style={{ textAlign: "center", padding: "32px 16px" }}>
-              <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "14px" }}>Koi party nahi hai abhi</p>
-              <Link to="/parties" className="pk-btn pk-btn--primary" style={{ textDecoration: "none", display: "inline-flex" }}>
-                <Plus size={15} /> Add First Party
-              </Link>
+            <div className="pk-card" style={{ textAlign: "center", padding: "20px", color: "var(--text-tertiary)", fontSize: "14px" }}>
+              No parties yet — Add a party to start
             </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {parties.map((p) => {
-                const bal = formatBalance(p.current_balance);
-                return (
-                  <div key={p.id} className="pk-card" onClick={() => navigate(`/ledger/${p.id}`)} style={{ cursor: "pointer" }} data-testid={`party-row-${p.id}`}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)" }}>{toTitleCase(p.name)}</p>
-                      <span style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-mono)", color: p.current_balance === 0 ? "var(--text-tertiary)" : p.current_balance > 0 ? "var(--dena)" : "var(--lena)" }}>
-                        {bal.text}
-                      </span>
-                    </div>
-                    {p.mobile && <p style={{ fontSize: "12px", color: "var(--text-tertiary)", marginTop: "3px", fontFamily: "var(--font-mono)" }}>{p.mobile}</p>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          ) : parties.map(p => {
+            const bal = formatBalance(p.current_balance);
+            return (
+              <div key={p.id} className="pk-card" style={{ marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                onClick={() => navigate(`/ledger?party=${p.id}`)}>
+                <div>
+                  <p style={{ fontSize: "14px", fontWeight: 600, margin: 0 }}>{toTitleCase(p.name)}</p>
+                  {p.mobile && <p style={{ fontSize: "12px", color: "var(--text-tertiary)", margin: "2px 0 0" }}>{p.mobile}</p>}
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, margin: 0, color: bal.type === "dena" ? "var(--dena)" : bal.type === "lena" ? "var(--lena)" : "var(--text-tertiary)" }}>{bal.text}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
+
       </div>
     </div>
   );

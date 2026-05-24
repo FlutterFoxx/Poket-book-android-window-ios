@@ -53,7 +53,7 @@ async def startup_event():
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
         from routes.backup import run_scheduled_backups
         scheduler = AsyncIOScheduler(timezone="UTC")
-        scheduler.add_job(run_scheduled_backups, "interval", hours=1)
+        scheduler.add_job(run_scheduled_backups, "interval", hours=24)  # daily Drive CSV sync
         scheduler.start()
         app.state.scheduler = scheduler
     except Exception as e:

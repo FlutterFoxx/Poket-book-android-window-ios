@@ -340,3 +340,133 @@ async def _scheduled_backup_task():
         except Exception as e:
             logging.error(f"Scheduled backup failed for {user.get('_id')}: {e}")
 
+
+# ─── Google Drive CSV Backup (replaces Google Sheets UI) ─────────────────────
+
+@router.get("/backup/drive-status")
+async def get_drive_status(current_user: dict = Depends(get_current_user)):
+    """Check if user has Google Drive connected + last backup time."""
+    user = await db.users.find_one({"_id": current_user["_id"]}, {"_id": 0})
+    connected = bool(user and user.get("google_access_token"))
+    last_backup = user.get("last_drive_backup") if user else None
+    return {
+        "connected": connected,
+        "last_backup": _fmt_dt(last_backup) if last_backup else None,
+    }
+
+@router.post("/backup/drive-sync")
+async def sync_to_drive(current_user: dict = Depends(get_current_user)):
+    """Upload full data as CSV to Google Drive. Creates/updates PoketBook_Backup.csv."""
+    user = await db.users.find_one({"_id": current_user["_id"]})
+    if not user or not user.get("google_access_token"):
+        raise HTTPException(400, "Google Drive not connected — connect first")
+    try:
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaInMemoryUpload
+        import io, csv as csv_mod
+
+        creds = Credentials(
+            token=user.get("google_access_token"),
+            refresh_token=user.get("google_refresh_token"),
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+            client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+        )
+        drive_svc = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+        # Build CSV content
+        output = io.StringIO()
+        writer = csv_mod.writer(output)
+        writer.writerow(["Party", "Mobile", "Address", "Balance", "Date"])
+        uid = current_user["_id"]
+        parties = await db.parties.find({"user_id": uid, "is_deleted": {"$ne": True}}).to_list(None)
+        for p in parties:
+            pid = str(p["_id"])
+            entries = await db.ledger_entries.find(
+                {"party_id": pid, "is_deleted": {"$ne": True}},
+                sort=[("date", 1)]
+            ).to_list(None)
+            for e in entries:
+                writer.writerow([
+                    p.get("name",""), p.get("mobile",""), p.get("address",""),
+                    e.get("balance",0), e.get("date",""),
+                ])
+        csv_bytes = output.getvalue().encode("utf-8")
+        media = MediaInMemoryUpload(csv_bytes, mimetype="text/csv", resumable=False)
+
+        # Check if backup file already exists
+        file_name = "PoketBook_Backup.csv"
+        existing_id = user.get("google_drive_file_id")
+        if existing_id:
+            try:
+                drive_svc.files().update(fileId=existing_id, media_body=media).execute()
+            except Exception:
+                existing_id = None  # File deleted — recreate
+
+        if not existing_id:
+            file_meta = {"name": file_name, "mimeType": "text/csv"}
+            result = drive_svc.files().create(body=file_meta, media_body=media, fields="id").execute()
+            existing_id = result["id"]
+            await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"google_drive_file_id": existing_id}})
+
+        now = datetime.now(timezone.utc)
+        await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"last_drive_backup": now}})
+        return {"message": "Backup synced to Google Drive", "file_id": existing_id}
+
+    except Exception as e:
+        logging.error(f"Drive sync error: {e}")
+        raise HTTPException(500, f"Sync failed: {str(e)[:100]}")
+
+# ─── Scheduled daily Drive backup (called by APScheduler every 24h) ──────────
+
+async def run_scheduled_backups():
+    """Called by APScheduler every 24h — syncs Google Drive CSV for all connected users."""
+    try:
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaInMemoryUpload
+        from google.oauth2.credentials import Credentials
+        import io, csv as csv_mod
+
+        users = await db.users.find({"google_access_token": {"$exists": True, "$ne": None}}).to_list(None)
+        logging.info(f"Daily Drive sync: {len(users)} users")
+
+        for user in users:
+            try:
+                uid = str(user["_id"])
+                creds = Credentials(
+                    token=user.get("google_access_token"),
+                    refresh_token=user.get("google_refresh_token"),
+                    token_uri="https://oauth2.googleapis.com/token",
+                    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+                    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+                )
+                drive_svc = build("drive", "v3", credentials=creds, cache_discovery=False)
+                output = io.StringIO()
+                writer = csv_mod.writer(output)
+                writer.writerow(["Party", "Mobile", "Address", "Balance", "Date"])
+                parties = await db.parties.find({"user_id": uid, "is_deleted": {"$ne": True}}).to_list(None)
+                for p in parties:
+                    pid = str(p["_id"])
+                    entries = await db.ledger_entries.find(
+                        {"party_id": pid, "is_deleted": {"$ne": True}}, sort=[("date", 1)]
+                    ).to_list(None)
+                    for e in entries:
+                        writer.writerow([p.get("name",""), p.get("mobile",""), p.get("address",""), e.get("balance",0), e.get("date","")])
+                csv_bytes = output.getvalue().encode("utf-8")
+                media = MediaInMemoryUpload(csv_bytes, mimetype="text/csv", resumable=False)
+                existing_id = user.get("google_drive_file_id")
+                if existing_id:
+                    try:
+                        drive_svc.files().update(fileId=existing_id, media_body=media).execute()
+                    except Exception:
+                        existing_id = None
+                if not existing_id:
+                    r = drive_svc.files().create(body={"name": "PoketBook_Backup.csv"}, media_body=media, fields="id").execute()
+                    existing_id = r["id"]
+                    await db.users.update_one({"_id": user["_id"]}, {"$set": {"google_drive_file_id": existing_id}})
+                await db.users.update_one({"_id": user["_id"]}, {"$set": {"last_drive_backup": datetime.now(timezone.utc)}})
+            except Exception as e:
+                logging.error(f"Drive sync failed for user {uid}: {e}")
+    except Exception as e:
+        logging.error(f"Scheduled backup error: {e}")
