@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
 import { downloadBlob } from "@/utils/saveFile";
-import { toast } from "sonner";
 import { RefreshCw, Printer, FileSpreadsheet, Camera } from "lucide-react";
+import { toast } from "sonner";
 
 const BalanceSheet = () => {
   const navigate = useNavigate();
@@ -79,14 +79,16 @@ const BalanceSheet = () => {
 
   // Authenticated Excel download (direct <a href> won't include auth token)
   const handleExcelDownload = async () => {
+    const toastId = toast.loading("Generating Excel...");
     try {
       const res = await api.get("/api/export/balance-sheet/excel", { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement("a");
-      a.href = url; a.download = `PoketBook_BalanceSheet_${new Date().toISOString().split("T")[0]}.xlsx`;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-    } catch { import("sonner").then(m => m.toast.error("Excel download failed", { duration: 1500 })); }
+      toast.dismiss(toastId);
+      const date = new Date().toISOString().split("T")[0];
+      await downloadBlob(res.data, `PoketBook_BalanceSheet_${date}.xlsx`);
+    } catch {
+      toast.dismiss(toastId);
+      toast.error("Excel download failed — try again", { duration: 2000 });
+    }
   };
 
   return (
