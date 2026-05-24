@@ -214,7 +214,42 @@ const SuperAdminPage = () => {
       <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
-  if (!user || !["superadmin", "admin"].includes(user.role)) return <Navigate to="/" replace />;
+
+  // Not logged in → show login prompt specifically for superadmin
+  if (!user) return (
+    <div className="flex h-screen items-center justify-center" style={{ background: "#0A0F1E", fontFamily: "sans-serif" }}>
+      <div style={{ textAlign: "center", maxWidth: "340px", padding: "20px" }}>
+        <img src="/logo.png" alt="PoketBook" style={{ width: 64, height: 64, objectFit: "contain", margin: "0 auto 16px", display: "block" }} />
+        <h2 style={{ color: "#fff", fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>SuperAdmin Access</h2>
+        <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "20px" }}>Please log in with your SuperAdmin credentials</p>
+        <a href="/login" style={{ display: "block", background: "#7C3AED", color: "#fff", padding: "12px 24px", borderRadius: "10px", textDecoration: "none", fontWeight: 700, fontSize: "14px" }}>
+          Login as SuperAdmin
+        </a>
+      </div>
+    </div>
+  );
+
+  // Logged in but wrong role → show access denied, not silent redirect
+  if (!["superadmin", "admin"].includes(user.role)) return (
+    <div className="flex h-screen items-center justify-center" style={{ background: "#0A0F1E", fontFamily: "sans-serif" }}>
+      <div style={{ textAlign: "center", maxWidth: "340px", padding: "20px" }}>
+        <img src="/logo.png" alt="PoketBook" style={{ width: 64, height: 64, objectFit: "contain", margin: "0 auto 16px", display: "block" }} />
+        <h2 style={{ color: "#EF4444", fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Access Denied</h2>
+        <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "4px" }}>
+          Logged in as: <strong style={{ color: "#fff" }}>{user.email}</strong>
+        </p>
+        <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "20px" }}>
+          This page requires SuperAdmin role.<br />Current role: <strong style={{ color: "#F59E0B" }}>{user.role}</strong>
+        </p>
+        <a href="/login" style={{ display: "block", background: "#7C3AED", color: "#fff", padding: "12px 24px", borderRadius: "10px", textDecoration: "none", fontWeight: 700, fontSize: "14px", marginBottom: "10px" }}>
+          Login as SuperAdmin
+        </a>
+        <a href="/" style={{ display: "block", color: "#94a3b8", fontSize: "13px", textDecoration: "none" }}>
+          ← Back to App
+        </a>
+      </div>
+    </div>
+  );
 
   const handleActivate = async (userId, planType) => {
     setUpdatingId(userId);
