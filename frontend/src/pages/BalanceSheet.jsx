@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
-import { saveBlob } from "@/utils/saveFile";
+import { downloadBlob } from "@/utils/saveFile";
 import { toast } from "sonner";
 import { RefreshCw, Printer, FileSpreadsheet, Camera } from "lucide-react";
 
@@ -14,32 +14,33 @@ const BalanceSheet = () => {
 
   const handleScreenshot = async () => {
     const el = contentRef.current;
-    if (!el) return;
-    const toastId = toast.loading("Capturing...");
+    if (!el) { toast.error("Nothing to capture"); return; }
+    const toastId = toast.loading("Capturing screenshot...");
     try {
-      const hidden = document.querySelectorAll(".no-screenshot");
-      hidden.forEach(h => { h.style.visibility = "hidden"; });
+      const noCapture = document.querySelectorAll(".no-screenshot");
+      noCapture.forEach(n => { n.style.visibility = "hidden"; });
+
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(el, {
         useCORS: true, backgroundColor: "#fff", scale: 1.5, logging: false,
         windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
       });
-      hidden.forEach(h => { h.style.visibility = ""; });
+
+      noCapture.forEach(n => { n.style.visibility = ""; });
       toast.dismiss(toastId);
-      await new Promise((resolve) => {
-        canvas.toBlob(async (blob) => {
-          const fileName = `balance-sheet_${new Date().toISOString().split("T")[0]}.png`;
-          await saveBlob(blob, fileName, "image/png");
-          resolve();
-        }, "image/png");
-      });
+
+      canvas.toBlob(async (blob) => {
+        const date = new Date().toISOString().split("T")[0];
+        await downloadBlob(blob, `balance-sheet_${date}.png`);
+      }, "image/png");
+
     } catch (err) {
-      document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
+      document.querySelectorAll(".no-screenshot").forEach(n => { n.style.visibility = ""; });
       toast.dismiss(toastId);
-      if (process.env.NODE_ENV === "development") console.error("Screenshot failed:", err);
-      toast.error("Screenshot failed", { duration: 2500 });
+      if (process.env.NODE_ENV === "development") console.error(err);
+      toast.error("Screenshot failed — try again", { duration: 2500 });
     }
-  };
+  };;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -57,21 +58,20 @@ const BalanceSheet = () => {
 
   const fmt = (n) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Math.abs(n || 0));
 
-  // PDF Print
+  // PDF Print — fresh
   const handlePrint = async () => {
     if (!data) return;
     const toastId = toast.loading("Generating PDF...");
     try {
       const res = await api.get("/api/export/balance-sheet/pdf", { responseType: "blob" });
       toast.dismiss(toastId);
-      const fileName = `PoketBook_BalanceSheet_${new Date().toISOString().split("T")[0]}.pdf`;
-      await saveBlob(res.data, fileName, "application/pdf");
-    } catch (err) {
+      const date = new Date().toISOString().split("T")[0];
+      await downloadBlob(res.data, `PoketBook_BalanceSheet_${date}.pdf`);
+    } catch {
       toast.dismiss(toastId);
-      if (process.env.NODE_ENV === "development") console.error("PDF failed:", err);
       toast.error("PDF generation failed — try again", { duration: 2500 });
     }
-  };
+  };;
 
   const netBal = formatBalance(data?.net_balance || 0);
   const lena = data?.lena_hai || [];

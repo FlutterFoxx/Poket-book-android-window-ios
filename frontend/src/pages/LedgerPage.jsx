@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
-import { saveBlob } from "@/utils/saveFile";
+import { downloadBlob } from "@/utils/saveFile";
 import { toast } from "sonner";
 import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, MessageCircle, Camera } from "lucide-react";
 
@@ -301,71 +301,81 @@ const LedgerPage = () => {
     setWaModal(true);
   };
 
-  // ── WhatsApp / PDF Share ─────────────────────────────────────────────────────
+  // ── WhatsApp PDF Share (fresh) ──────────────────────────────────────────────
   const handleWaSend = async () => {
     setWaModal(false);
     setSharingPdf(true);
     const toastId = toast.loading("Generating PDF...");
     try {
-      const params = waMode === "range" && waFrom && waTo ? `?start_date=${waFrom}&end_date=${waTo}` : "";
-      const res = await api.get(`/api/export/ledger/${selectedId}/pdf${params}`, { responseType: "blob" });
+      const params = waMode === "range" && waFrom && waTo
+        ? `?start_date=${waFrom}&end_date=${waTo}` : "";
+      const res = await api.get(
+        `/api/export/ledger/${selectedId}/pdf${params}`,
+        { responseType: "blob" }
+      );
       toast.dismiss(toastId);
-      if (!res.data || res.data.size === 0) throw new Error("PDF empty — try again");
-      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_${waTo}` : "Latest"}.pdf`;
-      await saveBlob(res.data, fileName, "application/pdf");
-    } catch (err) {
+      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_to_${waTo}` : "Statement"}.pdf`;
+      await downloadBlob(res.data, fileName);
+    } catch {
       toast.dismiss(toastId);
-      if (err?.name !== "AbortError") toast.error("PDF failed — check connection", { duration: 2500 });
+      toast.error("PDF failed — check connection and try again", { duration: 2500 });
     }
     setSharingPdf(false);
   };
 
-  // ── Screenshot ───────────────────────────────────────────────────────────────
+  // ── Screenshot (fresh) ───────────────────────────────────────────────────────
   const handleScreenshot = async () => {
     const el = tableContainerRef.current;
-    if (!el) return;
-    const toastId = toast.loading("Capturing...");
+    if (!el) { toast.error("Nothing to capture"); return; }
+    const toastId = toast.loading("Capturing screenshot...");
     try {
-      const hidden = document.querySelectorAll(".no-screenshot");
-      hidden.forEach(h => { h.style.visibility = "hidden"; });
+      // Hide nav elements from screenshot
+      const noCapture = document.querySelectorAll(".no-screenshot");
+      noCapture.forEach(n => { n.style.visibility = "hidden"; });
+
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(el, {
-        useCORS: true, backgroundColor: "#fff", scale: 1.5, logging: false,
-        windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
+        useCORS: true,
+        backgroundColor: "#fff",
+        scale: 1.5,
+        logging: false,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
       });
-      hidden.forEach(h => { h.style.visibility = ""; });
+
+      noCapture.forEach(n => { n.style.visibility = ""; });
       toast.dismiss(toastId);
-      await new Promise((resolve) => {
-        canvas.toBlob(async (blob) => {
-          const dateStr = new Date().toISOString().split("T")[0];
-          const fileName = `ledger_${toTitleCase(partyInfo?.name || "party")}_${dateStr}.png`;
-          if (!blob || blob.size === 0) { toast.error("Screenshot capture failed — try again"); resolve(); return; }
-          await saveBlob(blob, fileName, "image/png");
-          resolve();
-        }, "image/png");
-      });
+
+      // Convert canvas to blob and download
+      canvas.toBlob(async (blob) => {
+        const date = new Date().toISOString().split("T")[0];
+        const name = `ledger_${toTitleCase(partyInfo?.name || "party")}_${date}.png`;
+        await downloadBlob(blob, name);
+      }, "image/png");
+
     } catch (err) {
-      document.querySelectorAll(".no-screenshot").forEach(h => { h.style.visibility = ""; });
+      document.querySelectorAll(".no-screenshot").forEach(n => { n.style.visibility = ""; });
       toast.dismiss(toastId);
-      if (process.env.NODE_ENV === "development") console.error("Screenshot failed:", err);
-      toast.error("Screenshot failed", { duration: 2500 });
+      if (process.env.NODE_ENV === "development") console.error(err);
+      toast.error("Screenshot failed — try again", { duration: 2500 });
     }
   };
 
-  // ── Print PDF ────────────────────────────────────────────────────────────────
+  // ── Print / Download PDF (fresh) ─────────────────────────────────────────────
   const handlePrint = async () => {
     if (!partyInfo || !selectedId) return;
     const toastId = toast.loading("Generating PDF...");
     try {
-      const res = await api.get(`/api/export/ledger/${selectedId}/pdf`, { responseType: "blob" });
+      const res = await api.get(
+        `/api/export/ledger/${selectedId}/pdf`,
+        { responseType: "blob" }
+      );
       toast.dismiss(toastId);
-      if (!res.data || res.data.size === 0) throw new Error("PDF empty — try again");
       const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
-      await saveBlob(res.data, fileName, "application/pdf");
-    } catch (err) {
+      await downloadBlob(res.data, fileName);
+    } catch {
       toast.dismiss(toastId);
-      if (process.env.NODE_ENV === "development") console.error("PDF failed:", err);
-      toast.error("PDF generation failed", { duration: 2000 });
+      toast.error("PDF generation failed — try again", { duration: 2000 });
     }
   };
 

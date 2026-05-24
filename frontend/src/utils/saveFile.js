@@ -1,48 +1,41 @@
 /**
- * saveBlob — Universal file save. Simplified, reliable version.
- * Share → Download fallback. Toast shows ONLY after action completes.
+ * saveFile.js — Clean file save utility (fresh rewrite)
+ * Two strategies only: Web Share API (mobile) → blob download (desktop/fallback)
  */
 import { toast } from "sonner";
 
-export async function saveBlob(blob, fileName, mimeType) {
-  if (!blob || blob.size === 0) {
-    toast.error("File empty — generation failed. Try again.", { duration: 3000 });
-    return "empty";
+export async function downloadBlob(blob, fileName) {
+  // Guard: ensure blob has real content
+  if (!blob || blob.size < 50) {
+    toast.error("File generation failed — please try again", { duration: 3000 });
+    return false;
   }
 
-  const type = mimeType || blob.type || "application/octet-stream";
-  const file = new File([blob], fileName, { type });
+  const file = new File([blob], fileName, { type: blob.type });
 
-  // Strategy 1: Web Share with file — toast fires ONLY after share resolves
+  // Mobile: Web Share API with file (Android Chrome, iOS Safari 15+)
   if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: fileName });
-      toast.success("Shared successfully!", { duration: 1500 });
-      return "shared";
-    } catch (e) {
-      if (e.name === "AbortError") return "cancelled"; // user cancelled — no toast
-      // other share error → fall through to download
+      toast.success("File shared!", { duration: 1500 });
+      return true;
+    } catch (err) {
+      if (err.name === "AbortError") return false; // user cancelled, no toast
+      // fall through to download
     }
   }
 
-  // Strategy 2: Download via <a> element — toast fires ONLY after click confirmed
+  // Desktop + Android fallback: standard <a> download
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // Revoke after 30s — gives Android/desktop download manager time to complete
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
-
-  // Toast fires immediately after a.click() — download has been triggered
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  if (isAndroid) {
-    toast.success("Saved to Downloads folder", { duration: 2500 });
-  } else {
-    toast.success("Downloaded!", { duration: 1500 });
-  }
-  return "downloaded";
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  // Revoke after 15s — enough time for any download manager
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
+  toast.success("File downloaded!", { duration: 1500 });
+  return true;
 }
