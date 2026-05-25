@@ -73,7 +73,11 @@ app.include_router(backup_router)
 app.include_router(admin_router)
 
 # ── Shutdown ─────────────────────────────────────────────────────────────────
-@app.on_event("shutdown")
+@app.get("/health")
+async def health_check():
+    """Kubernetes liveness/readiness probe — must return 200."""
+    return {"status": "ok"}
+
 async def shutdown_db_client():
     try:
         if hasattr(app.state, "scheduler"):
