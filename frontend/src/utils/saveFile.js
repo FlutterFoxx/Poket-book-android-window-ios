@@ -85,6 +85,11 @@ export async function downloadBlob(blob, fileName) {
     toast.error("File generation failed — please try again", { duration: 3000 });
     return false;
   }
+  // Network check (checklist item #9)
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    toast.error("No internet connection — check your network", { duration: 3000 });
+    return false;
+  }
 
   // Mobile: show bottom-sheet with Share button (proper user gesture)
   if (isMobile()) {

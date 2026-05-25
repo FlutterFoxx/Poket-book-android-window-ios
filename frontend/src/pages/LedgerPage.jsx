@@ -336,9 +336,11 @@ const LedgerPage = () => {
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(el, {
         useCORS: true,
+        allowTaint: false,
         backgroundColor: "#fff",
         scale: 1.5,
         logging: false,
+        timeout: 10000,
         windowWidth: el.scrollWidth,
         windowHeight: el.scrollHeight,
       });
