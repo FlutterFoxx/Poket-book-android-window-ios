@@ -383,3 +383,31 @@ async def save_font_settings(request: Request, current_user: dict = Depends(get_
         upsert=True,
     )
     return {"message": "Font settings saved", "font_family": font_family, "font_size": font_size}
+
+# ─── Feature Flags ────────────────────────────────────────────────────────────
+
+@router.get("/feature-flags")
+async def get_feature_flags():
+    """Public — returns enabled feature flags for frontend."""
+    flags = await db.feature_flags.find({}, {"_id": 0}).to_list(None)
+    return {f["key"]: f.get("enabled", True) for f in flags}
+
+@router.post("/superadmin/feature-flags/{key}")
+async def toggle_feature_flag(key: str, request: Request, current_user: dict = Depends(get_current_user)):
+    """SuperAdmin toggle — disable broken features without redeploying."""
+    _require_superadmin(current_user)
+    body = await request.json()
+    enabled = body.get("enabled", True)
+    await db.feature_flags.update_one(
+        {"key": key},
+        {"$set": {"key": key, "enabled": enabled, "updated_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"key": key, "enabled": enabled, "message": f"Feature '{key}' {'enabled' if enabled else 'disabled'}"}
+
+@router.get("/superadmin/feature-flags")
+async def list_feature_flags(current_user: dict = Depends(get_current_user)):
+    """SuperAdmin — list all feature flags."""
+    _require_superadmin(current_user)
+    flags = await db.feature_flags.find({}, {"_id": 0}).to_list(None)
+    return flags or []

@@ -329,20 +329,28 @@ const LedgerPage = () => {
     if (!el) { toast.error("Nothing to capture"); return; }
     const toastId = toast.loading("Capturing screenshot...");
     try {
-      // Hide nav elements from screenshot
       const noCapture = document.querySelectorAll(".no-screenshot");
       noCapture.forEach(n => { n.style.visibility = "hidden"; });
 
+      const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.Capacitor?.isNativePlatform?.();
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(el, {
         useCORS: true,
         allowTaint: false,
-        backgroundColor: "#fff",
+        backgroundColor: "#ffffff",
         scale: 1.5,
         logging: false,
-        timeout: 10000,
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
+        timeout: 15000,
+        imageTimeout: 5000,
+        // Mobile: capture only the visible viewport (latest entries), not full scroll
+        windowWidth: el.clientWidth || el.scrollWidth,
+        windowHeight: isMobileDevice ? el.clientHeight : el.scrollHeight,
+        height: isMobileDevice ? el.clientHeight : undefined,
+        width: el.clientWidth || el.scrollWidth,
+        onclone: (doc) => {
+          doc.querySelectorAll("img").forEach(img => { img.crossOrigin = "anonymous"; });
+        },
+      });
       });
 
       noCapture.forEach(n => { n.style.visibility = ""; });
