@@ -24,12 +24,18 @@ const BalanceSheet = () => {
       const canvas = await html2canvas(el, {
         useCORS: true,
         allowTaint: false,
-        backgroundColor: "#fff",
+        backgroundColor: "#ffffff",
         scale: 1.5,
         logging: false,
-        timeout: 10000,
+        timeout: 15000,
+        imageTimeout: 5000,
         windowWidth: el.scrollWidth,
         windowHeight: el.scrollHeight,
+        onclone: (doc) => {
+          doc.querySelectorAll("img").forEach(img => {
+            img.crossOrigin = "anonymous";
+          });
+        },
       });
 
       noCapture.forEach(n => { n.style.visibility = ""; });
