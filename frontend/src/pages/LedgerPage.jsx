@@ -351,7 +351,6 @@ const LedgerPage = () => {
           doc.querySelectorAll("img").forEach(img => { img.crossOrigin = "anonymous"; });
         },
       });
-      });
 
       noCapture.forEach(n => { n.style.visibility = ""; });
       toast.dismiss(toastId);

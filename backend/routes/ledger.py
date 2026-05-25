@@ -308,8 +308,8 @@ async def get_balance_sheet(current_user: dict = Depends(get_current_user)):
     total_dena = sum(x["amount"] for x in dena_hai)   # total of DENA parties
     total_lena = sum(x["amount"] for x in lena_hai)   # total of LENA parties
     return {
-        "lena_hai": sorted(lena_hai, key=lambda x: x["amount"], reverse=True),
-        "dena_hai": sorted(dena_hai, key=lambda x: x["amount"], reverse=True),
+        "lena_hai": sorted(lena_hai, key=lambda x: x["name"].lower()),
+        "dena_hai": sorted(dena_hai, key=lambda x: x["name"].lower()),
         "total_receivable": round(total_dena, 2),   # we will receive from DENA parties
         "total_payable": round(total_lena, 2),      # we will pay to LENA parties
         # net: negative = net LENA (we receive more) → formatBalance(negative) = Lena Hai RED ✓
