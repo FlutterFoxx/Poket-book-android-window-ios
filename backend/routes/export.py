@@ -158,16 +158,15 @@ async def export_ledger_pdf(
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15*mm, rightMargin=15*mm, topMargin=10*mm, bottomMargin=12*mm)
 
-    # Logo: resize to 48x48 thumbnail to keep PDF small & fast
+    # Logo: full quality for high-resolution PDF (750KB+)
     LOGO_PATH = "/app/frontend/public/logo.png"
     try:
         from PIL import Image as PILImage
         pil_img = PILImage.open(LOGO_PATH).convert("RGBA")
-        pil_img.thumbnail((48, 48), PILImage.LANCZOS)
         logo_buf = io.BytesIO()
-        pil_img.save(logo_buf, format="PNG", optimize=True)
+        pil_img.save(logo_buf, format="PNG")  # full resolution, no resize
         logo_buf.seek(0)
-        logo_img = RLImage(logo_buf, width=22, height=22)
+        logo_img = RLImage(logo_buf, width=55, height=55)
     except Exception:
         logo_img = Paragraph("", ParagraphStyle("x"))
 
@@ -293,14 +292,13 @@ async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
     dena = data["dena_hai"];  lena = data["lena_hai"];  max_rows = max(len(dena), len(lena), 1)
     net  = data.get("net_balance", 0)
 
-    # ── Header table: logo (small thumbnail for fast PDF) + title + date ──────
+    # ── Header table: full quality logo for 750KB+ PDF ──────────────────
     LOGO_PATH = "/app/frontend/public/logo.png"
     try:
         from PIL import Image as PILImage
         pil_img = PILImage.open(LOGO_PATH).convert("RGBA")
-        pil_img.thumbnail((48, 48), PILImage.LANCZOS)
-        lbuf = io.BytesIO(); pil_img.save(lbuf, format="PNG", optimize=True); lbuf.seek(0)
-        logo_cell = RLImage(lbuf, width=24, height=24)
+        lbuf = io.BytesIO(); pil_img.save(lbuf, format="PNG"); lbuf.seek(0)
+        logo_cell = RLImage(lbuf, width=55, height=55)
     except Exception:
         logo_cell = Paragraph("", ParagraphStyle("x"))
     hdr_title  = Paragraph("<b>PoketBook</b>", ParagraphStyle("ht", fontSize=14, fontName="Helvetica-Bold", textColor=GREEN))

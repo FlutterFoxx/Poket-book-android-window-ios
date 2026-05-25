@@ -1,29 +1,84 @@
 /**
- * saveFile.js — Mobile-first file save that actually works on Android Capacitor
- *
- * Root cause of the bug: On Android Capacitor WebView, a.download saves to
- * the app's PRIVATE storage (not user-accessible). navigator.share({files})
- * requires a direct user gesture but fails after async fetch (gesture expired).
- *
- * Solution: Fetch the file async, then show a toast with a "Tap to Share" button.
- * The button click IS a fresh user gesture → navigator.share succeeds.
- * Desktop: direct a.download (works fine outside WebView).
+ * saveFile.js — Injects a native-style bottom sheet for mobile sharing
+ * 
+ * On Android Capacitor: toast action buttons don't have user-gesture context.
+ * Solution: Inject a real DOM bottom sheet with a button — its click() IS a
+ * valid user gesture for navigator.share({files}).
  */
 import { toast } from "sonner";
 
-const isMobileWebView = () => {
+const isMobile = () => {
   try {
-    // Android Capacitor WebView or iOS WKWebView
     if (window.Capacitor?.isNativePlatform?.()) return true;
-    // Android WebView user agent
-    if (/wv|WebView/i.test(navigator.userAgent)) return true;
-    // iOS WebView
-    if (/iPhone|iPad|iPod/i.test(navigator.userAgent) && !/Safari/i.test(navigator.userAgent)) return true;
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return true;
   } catch {}
   return false;
 };
 
 const isElectron = () => /Electron/i.test(navigator.userAgent || "");
+
+/** Show a bottom-sheet overlay and return a Promise that resolves when user taps Share or Cancel */
+function showShareSheet(blob, fileName) {
+  return new Promise((resolve) => {
+    const file = new File([blob], fileName, { type: blob.type });
+    const isPDF = fileName.endsWith(".pdf");
+    const isImg = fileName.endsWith(".png") || fileName.endsWith(".jpg");
+    const emoji = isPDF ? "📄" : isImg ? "🖼️" : "📊";
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = [
+      "position:fixed", "inset:0", "background:rgba(0,0,0,0.55)",
+      "z-index:99999", "display:flex", "align-items:flex-end",
+      "justify-content:center", "padding:0 0 env(safe-area-inset-bottom,0)",
+    ].join(";");
+
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 28px;width:100%;max-width:500px;text-align:center;box-shadow:0 -4px 24px rgba(0,0,0,0.15)">
+        <div style="font-size:42px;margin-bottom:10px">${emoji}</div>
+        <p style="font-size:15px;font-weight:700;color:#111;margin:0 0 4px;word-break:break-all">${fileName}</p>
+        <p style="font-size:12px;color:#888;margin:0 0 20px">${(blob.size / 1024).toFixed(0)} KB • Tap Share to save or send</p>
+        <button id="pb-share-btn" style="width:100%;background:#25D366;color:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;letter-spacing:0.3px">
+          Share / Save to Gallery
+        </button>
+        <button id="pb-cancel-btn" style="width:100%;background:transparent;border:1.5px solid #e0e0e0;border-radius:14px;padding:13px;font-size:14px;color:#555;cursor:pointer">
+          Cancel
+        </button>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    const cleanup = () => {
+      if (overlay.parentNode) document.body.removeChild(overlay);
+    };
+
+    overlay.querySelector("#pb-share-btn").addEventListener("click", async () => {
+      cleanup();
+      if (typeof navigator.share === "function") {
+        try {
+          // Try with file (opens WhatsApp, Drive, Gallery, etc.)
+          await navigator.share({ files: [file], title: fileName });
+          toast.success("Shared!", { duration: 1500 });
+        } catch (err) {
+          if (err.name !== "AbortError") {
+            // File share not supported — fall back to download
+            _triggerDownload(blob, fileName);
+          }
+        }
+      } else {
+        _triggerDownload(blob, fileName);
+      }
+      resolve(true);
+    });
+
+    overlay.querySelector("#pb-cancel-btn").addEventListener("click", () => {
+      cleanup(); resolve(false);
+    });
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) { cleanup(); resolve(false); }
+    });
+  });
+}
 
 export async function downloadBlob(blob, fileName) {
   if (!blob || blob.size === 0) {
@@ -31,58 +86,22 @@ export async function downloadBlob(blob, fileName) {
     return false;
   }
 
-  const file = new File([blob], fileName, { type: blob.type });
-
-  // ── MOBILE (Android Capacitor / iOS WebView) ──────────────────────────────
-  // a.download saves to app's private folder (not user-accessible!)
-  // Solution: Show a toast with "Tap to Share" button — fresh user gesture
-  if (isMobileWebView()) {
-    toast(fileName, {
-      description: "Your file is ready",
-      action: {
-        label: "Tap to Share",
-        onClick: async () => {
-          if (typeof navigator.share === "function") {
-            try {
-              await navigator.share({ files: [file], title: fileName });
-            } catch (err) {
-              if (err.name !== "AbortError") {
-                // Share with files failed — try text share with instructions
-                try {
-                  await navigator.share({
-                    title: "PoketBook Export",
-                    text: `Your file "${fileName}" is ready. Check poketbook.in to download.`
-                  });
-                } catch {}
-              }
-            }
-          } else {
-            // Very old Android — last resort download
-            _triggerDownload(blob, fileName);
-          }
-        }
-      },
-      duration: 30000, // 30s to let user tap the button
-    });
+  // Mobile: show bottom-sheet with Share button (proper user gesture)
+  if (isMobile()) {
+    await showShareSheet(blob, fileName);
     return true;
   }
 
-  // ── DESKTOP (Electron, Chrome, Firefox, Safari) ───────────────────────────
-  // a.download works reliably outside WebView
+  // Desktop / Electron: direct download
   _triggerDownload(blob, fileName);
-  const label = isElectron() ? "Saved to Downloads" : "Downloaded!";
-  toast.success(label, { duration: 1500 });
+  toast.success(isElectron() ? "Saved to Downloads" : "Downloaded!", { duration: 1500 });
   return true;
 }
 
 function _triggerDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url; a.download = fileName; a.style.display = "none";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
