@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -11,6 +11,22 @@ const SettingsPage = () => {
   const [showPass, setShowPass] = useState({ current: false, new: false, confirm: false });
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [googleLinked, setGoogleLinked] = useState(false);
+
+  useEffect(() => {
+    // Check if user has google_auth linked (from /auth/me response)
+    setGoogleLinked(!!user?.google_auth || !!user?.picture);
+  }, [user]);
+
+  const handleConnectGoogle = () => {
+    const redirectUrl = window.location.origin + "/settings?google=connected";
+    const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    const isCapacitor = window.Capacitor?.isNativePlatform?.();
+    const isWebView = /wv|WebView/i.test(navigator.userAgent);
+    if (isCapacitor || isWebView) { window.open(authUrl, "_system"); }
+    else { window.open(authUrl, "_blank", "noopener,noreferrer"); }
+    toast.info("Complete Google sign-in and return here", { duration: 4000 });
+  };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -69,11 +85,59 @@ const SettingsPage = () => {
             style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "password" ? "var(--primary)" : "#fff", color: tab === "password" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
             <Lock size={14} style={{ display: "inline", marginRight: "6px" }} /> Change Password
           </button>
+          <button onClick={() => setTab("google")}
+            style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "google" ? "#4285F4" : "#fff", color: tab === "google" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" style={{ display: "inline", marginRight: "6px", verticalAlign: "middle" }}>
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill={tab === "google" ? "#fff" : "#EA4335"}/>
+            </svg>
+            Google
+          </button>
           <button onClick={() => setTab("account")}
             style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "account" ? "var(--primary)" : "#fff", color: tab === "account" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
             <Shield size={14} style={{ display: "inline", marginRight: "6px" }} /> Account Info
           </button>
         </div>
+
+        {/* Google Account Tab */}
+        {tab === "google" && (
+          <div className="pk-card">
+            <h2 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px", color: "var(--text-primary)" }}>Google Account</h2>
+            <p style={{ fontSize: "13px", color: "var(--text-tertiary)", marginBottom: "20px" }}>
+              Link your Google account to enable one-tap login and automatic Drive backup.
+            </p>
+
+            {googleLinked ? (
+              <div style={{ background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: "10px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+                {user?.picture && <img src={user.picture} alt="Google" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }} />}
+                <div>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#166534", margin: 0 }}>Google Connected</p>
+                  <p style={{ fontSize: "12px", color: "#166534", margin: "2px 0 0" }}>{user?.email}</p>
+                </div>
+                <CheckCircle size={20} color="#16A34A" style={{ marginLeft: "auto" }} />
+              </div>
+            ) : (
+              <button onClick={handleConnectGoogle}
+                style={{ width: "100%", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: "12px", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", textAlign: "left" }}>
+                <div style={{ width: 40, height: 40, borderRadius: "10px", background: "#F8FAFC", border: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#111", margin: 0 }}>Connect Google Account</p>
+                  <p style={{ fontSize: "12px", color: "#666", margin: "2px 0 0" }}>Enable Google login + Drive backup</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Change Password Tab */}
         {tab === "password" && (
