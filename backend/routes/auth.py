@@ -1,12 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os, io, logging, secrets, string, base64, asyncio
+import jwt
 from fastapi import APIRouter, Request, HTTPException, Depends, Response
 from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import uuid as uuid_lib
-from core import (db, hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, JWT_ALGORITHM, UserCreate, UserLogin, PhoneSendOTP, PhoneVerifyOTP)
+from core import (db, hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, JWT_ALGORITHM, UserCreate, UserLogin, PhoneSendOTP, PhoneVerifyOTP, _otp_store)
 from security import (
     validate_email, validate_password_strength, check_password_legacy,
     sanitize_name, sanitize_email,
