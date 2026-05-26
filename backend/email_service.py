@@ -3,9 +3,15 @@ PoketBook Email Service — Resend integration
 Handles: email verification, subscription expiry reminders, password reset
 """
 import os, asyncio, logging
-import resend
 
-resend.api_key = os.environ.get("RESEND_API_KEY", "")
+# Defensive import — auth works even if resend is not yet installed
+try:
+    import resend
+    resend.api_key = os.environ.get("RESEND_API_KEY", "")
+    _RESEND_OK = True
+except ImportError:
+    _RESEND_OK = False
+    logging.warning("resend package not installed — email sending disabled")
 SENDER = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 APP_URL = os.environ.get("APP_URL", os.environ.get("FRONTEND_URL", "https://poketbook.in"))
 
@@ -33,6 +39,9 @@ def _wrap(body: str) -> str:
 
 async def _send(to_email: str, subject: str, html: str):
     """Non-blocking send using asyncio.to_thread (Resend SDK is synchronous)."""
+    if not _RESEND_OK:
+        logging.warning(f"Email skipped (resend not available): {subject} → {to_email}")
+        return
     params = {"from": f"PoketBook <{SENDER}>", "to": [to_email], "subject": subject, "html": html}
     try:
         result = await asyncio.to_thread(resend.Emails.send, params)

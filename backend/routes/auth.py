@@ -14,7 +14,14 @@ from security import (
     check_rate_limit, record_failed_attempt, clear_rate_limit,
     set_auth_cookies, audit_log,
 )
-from email_service import send_verification_email, send_password_reset_email
+# Defensive import — if email_service fails (e.g. resend not installed), auth still works
+try:
+    from email_service import send_verification_email, send_password_reset_email
+except Exception as _email_import_err:
+    import logging as _log
+    _log.warning(f"email_service unavailable: {_email_import_err} — email features disabled")
+    async def send_verification_email(*a, **kw): pass
+    async def send_password_reset_email(*a, **kw): pass
 
 router = APIRouter(prefix="/api")
 
