@@ -70,8 +70,8 @@ class TestRegistrationResponse:
     """Register response includes email_verified: false"""
 
     def test_register_returns_email_verified_false(self, session):
-        import random, string
-        rand = "".join(random.choices(string.ascii_lowercase, k=6))
+        import secrets as sec
+        rand = sec.token_hex(4)
         email = f"test_{rand}@example.com"
         resp = session.post(f"{BASE_URL}/api/auth/register", json={
             "email": email, "password": "TestPass@123", "name": "Test User"
@@ -79,6 +79,6 @@ class TestRegistrationResponse:
         assert resp.status_code == 200, f"Register failed: {resp.text}"
         data = resp.json()
         assert "email_verified" in data
-        assert data["email_verified"] == False, f"Expected False, got {data['email_verified']}"
+        assert not data["email_verified"], f"Expected False, got {data['email_verified']}"
         print(f"PASS: Register returns email_verified=False for {email}")
         # Cleanup: no cleanup needed (test user)

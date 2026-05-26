@@ -20,7 +20,7 @@ const isMobile = () => {
   try {
     if (window.Capacitor?.isNativePlatform?.()) return true;
     if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return true;
-  } catch {}
+  } catch { /* navigator access restricted in some WebView environments */ }
   return false;
 };
 

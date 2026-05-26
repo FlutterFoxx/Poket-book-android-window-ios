@@ -57,7 +57,7 @@ export default function ExportHistoryPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {history.map((item, i) => (
-              <div key={i} className="pk-card" style={{ padding: "12px 14px" }}>
+              <div key={item.timestamp ? `${item.timestamp}-${i}` : `export-${i}`} className="pk-card" style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                   <div style={{ marginTop: "2px", flexShrink: 0 }}>{extIcon(item.fileName)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
