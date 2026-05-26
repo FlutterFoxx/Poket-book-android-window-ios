@@ -61,6 +61,7 @@ jobs:
           SKIP_PREFLIGHT_CHECK: true
           GENERATE_SOURCEMAP: false
           REACT_APP_BACKEND_URL: https://poketbook.in
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
         run: npm run build
 
   health-check:

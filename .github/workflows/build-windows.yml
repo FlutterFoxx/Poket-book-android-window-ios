@@ -1,22 +1,32 @@
-name: Build PoketBook Desktop Windows EXE
+name: Build PoketBook Windows Desktop
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
-    name: Build Windows EXE
+    name: Build Windows EXE + Installer
     runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+        with: { node-version: '20' }
+
+      - name: Compute version
+        id: v
+        shell: bash
+        run: |
+          CODE="${{ github.run_number }}"
+          NAME="1.0.${CODE}"
+          echo "version_name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v${NAME}-win" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         working-directory: ./frontend
@@ -30,19 +40,19 @@ jobs:
           SKIP_PREFLIGHT_CHECK: "true"
           GENERATE_SOURCEMAP: "false"
           REACT_APP_BACKEND_URL: "https://poketbook.in"
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
         run: npm run build
 
-      - name: Copy electron.js into build folder
+      - name: Copy Electron files into build
         working-directory: ./frontend
         shell: bash
         run: |
           cp electron.js build/electron.js
           cp public/logo.png build/logo.png 2>/dev/null || true
           cp public/logo512.png build/logo512.png 2>/dev/null || true
-          echo "Files in build/:"
-          ls build/*.js build/*.png 2>/dev/null
+          echo "Build contents:"; ls build/*.js 2>/dev/null
 
-      - name: Build Electron Windows installer
+      - name: Build Electron installer
         working-directory: ./frontend
         env:
           CI: "false"
@@ -52,12 +62,30 @@ jobs:
       - name: List output
         working-directory: ./frontend
         shell: bash
-        run: ls dist-electron/ 2>/dev/null || echo "No dist-electron found"
+        run: |
+          ls dist-electron/ 2>/dev/null || echo "No dist-electron found"
+          find dist-electron/ -name "*.exe" -o -name "*.msi" 2>/dev/null | head -10 || true
 
-      - name: Upload Windows installer
+      - name: Upload artifact (CI storage)
         uses: actions/upload-artifact@v4
         with:
-          name: PoketBook-Windows-v1.1.0
+          name: PoketBook-Windows-v${{ steps.v.outputs.version_name }}
           path: frontend/dist-electron/
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.release_tag }}
+          name: PoketBook Windows ${{ steps.v.outputs.release_tag }}
+          body: |
+            ## PoketBook Desktop for Windows ${{ steps.v.outputs.release_tag }}
+
+            ### Download
+            - **Setup .exe** — double-click to install PoketBook on Windows
+
+            > Built from commit `${{ github.sha }}` on branch `${{ github.ref_name }}`
+          files: frontend/dist-electron/*.exe
+          draft: false
+          prerelease: false
