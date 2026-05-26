@@ -53,6 +53,8 @@ const LedgerPage = () => {
   const [waTo, setWaTo] = useState("");
   const [waMode, setWaMode] = useState("latest");
   const savingLockRef = useRef(false);
+  // Android: PDF/Screenshot/WhatsApp removed (use web version at poketbook.in)
+  const isAndroid = /Android/i.test(navigator.userAgent) || (window.Capacitor?.isNativePlatform?.() && !/iPad|iPhone|iPod/i.test(navigator.userAgent));
 
   const naamRef = useRef(null);
   const jamaRef = useRef(null);
@@ -134,7 +136,7 @@ const LedgerPage = () => {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchParties is stable (useCallback with [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchParties(); }, [fetchParties]);
   useEffect(() => { if (urlPartyId) setSelectedId(urlPartyId); }, [urlPartyId]);
   useEffect(() => { if (selectedId) { fetchEntries(selectedId); setVisibleCount(80); } }, [selectedId, fetchEntries]);
@@ -330,7 +332,6 @@ const LedgerPage = () => {
         logging: false,
         timeout: 15000,
         imageTimeout: 5000,
-        // Mobile: capture only the visible viewport (latest entries), not full scroll
         windowWidth: el.clientWidth || el.scrollWidth,
         windowHeight: isMobileDevice ? el.clientHeight : el.scrollHeight,
         height: isMobileDevice ? el.clientHeight : undefined,
@@ -499,15 +500,18 @@ const LedgerPage = () => {
                 <Lock size={12} /> <span className="hidden lg:inline">Tally</span> ({unlocked})
               </button>
             )}
-            <button onClick={handleWhatsAppShare} disabled={sharingPdf} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share PDF on WhatsApp">
-              <MessageCircle size={13} className={sharingPdf ? "animate-spin" : ""} /> <span className="hidden md:inline">{sharingPdf ? "..." : "Share"}</span>
-            </button>
-            <button onClick={handlePrint} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-stone-600 text-white hover:bg-stone-700 rounded" data-testid="export-pdf-btn" title="Print PDF">
-              <Printer size={12} /> <span className="hidden lg:inline">Print</span>
-            </button>
-            <button onClick={handleScreenshot} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: "#0891B2" }} data-testid="screenshot-btn" title="Screenshot (PNG)">
-              <Camera size={12} /> <span className="hidden lg:inline">Screenshot</span>
-            </button>
+            {/* PDF/Screenshot/WhatsApp: only on web/iOS, not on Android */}
+            {!isAndroid && (<>
+              <button onClick={handleWhatsAppShare} disabled={sharingPdf} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share PDF on WhatsApp">
+                <MessageCircle size={13} className={sharingPdf ? "animate-spin" : ""} /> <span className="hidden md:inline">{sharingPdf ? "..." : "Share"}</span>
+              </button>
+              <button onClick={handlePrint} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-stone-600 text-white hover:bg-stone-700 rounded" data-testid="export-pdf-btn" title="Print PDF">
+                <Printer size={12} /> <span className="hidden lg:inline">Print</span>
+              </button>
+              <button onClick={handleScreenshot} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: "#0891B2" }} data-testid="screenshot-btn" title="Screenshot (PNG)">
+                <Camera size={12} /> <span className="hidden lg:inline">Screenshot</span>
+              </button>
+            </>)}
           </div>
         )}
       </div>
@@ -588,7 +592,7 @@ const LedgerPage = () => {
                             {e.is_locked && <span style={{ fontSize:"9px", background:"#FEF3C7", color:"#92400E", padding:"1px 5px", borderRadius:"4px", fontWeight:700 }}>★</span>}
                           </div>
                           <div style={{ fontSize:"12px", fontWeight:600, color:"var(--dena)", marginTop:"1px" }}>{toTitleCase(e.counterparty_name || "—")}</div>
-                          {e.narration && <div style={{ fontSize:"11px", color:"#6B7280", fontStyle:"italic", marginTop:"2px" }}>{e.narration}</div>}
+                          {e.narration && <div style={{ fontSize:"11px", color:"#4B5563", fontStyle:"italic", fontWeight:"700", marginTop:"2px" }}>{e.narration}</div>}
                         </div>
                         {/* Credit (नाम) */}
                         <div style={{ textAlign:"right", fontSize:"13px", fontFamily:"var(--font-mono)", fontWeight:700, color:"var(--lena)" }}>
@@ -703,7 +707,7 @@ const LedgerPage = () => {
                         <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right text-base font-mono font-bold text-green-900 border-r border-amber-200">
                           {e.jama > 0 ? e.jama.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}
                         </td>
-                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-base text-stone-700 border-r border-amber-200 max-w-[160px] truncate hidden md:table-cell">{e.narration || "—"}</td>
+                        <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-base text-stone-800 border-r border-amber-200 max-w-[160px] truncate hidden md:table-cell" style={{fontWeight:600}}>{e.narration || "—"}</td>
                         <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right border-r border-amber-200">
                           <span className={`text-base font-mono font-bold whitespace-nowrap ${balColor(e.balance)}`}>
                             {Math.abs(e.balance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
@@ -776,7 +780,7 @@ const LedgerPage = () => {
               overflow: "hidden",
               transition: "max-height 0.3s ease",
             }}>
-              <div className="pk-card" style={{ margin: "0 12px 12px", padding: "0", overflow: "hidden" }}>
+              <div className="pk-card" style={{ margin: "0 12px 12px", padding: "0", overflow: "hidden", fontFamily: "var(--font-body)", fontSize: "var(--app-font-size, 13px)" }}>
               {/* Form body */}
               <div style={{ padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
                 {/* Row 1: Date + Party */}

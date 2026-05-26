@@ -77,7 +77,7 @@ export const BottomNav = () => {
             }}
           >
             <Icon size={20} style={{ marginBottom: "2px" }} />
-            <span style={{ fontSize: "10px", fontWeight: isActive ? 700 : 500, letterSpacing: "0.2px" }}>
+            <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.2px", fontFamily: "var(--font-body)" }}>
               {label}
             </span>
             {isActive && (

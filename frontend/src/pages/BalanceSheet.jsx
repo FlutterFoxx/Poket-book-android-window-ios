@@ -52,7 +52,7 @@ const BalanceSheet = () => {
       if (process.env.NODE_ENV === "development") console.error(err);
       toast.error("Screenshot failed — try again", { duration: 2500 });
     }
-  };;
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
