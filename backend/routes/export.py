@@ -26,8 +26,8 @@ async def _fetch_balance_sheet(current_user: dict) -> dict:
     total_dena = sum(x["amount"] for x in dena_hai)
     total_lena = sum(x["amount"] for x in lena_hai)
     return {
-        "lena_hai": sorted(lena_hai, key=lambda x: x["amount"], reverse=True),
-        "dena_hai": sorted(dena_hai, key=lambda x: x["amount"], reverse=True),
+        "lena_hai": sorted(lena_hai, key=lambda x: x["name"].lower()),
+        "dena_hai": sorted(dena_hai, key=lambda x: x["name"].lower()),
         "total_receivable": round(total_dena, 2),
         "total_payable": round(total_lena, 2),
         "net_balance": round(total_lena - total_dena, 2),

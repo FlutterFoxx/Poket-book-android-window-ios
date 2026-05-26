@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
@@ -10,18 +10,15 @@ const BalanceSheet = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const contentRef = useRef(null);
 
   const handleScreenshot = async () => {
-    const el = contentRef.current;
-    if (!el) { toast.error("Nothing to capture"); return; }
     const toastId = toast.loading("Capturing screenshot...");
     try {
       const noCapture = document.querySelectorAll(".no-screenshot");
       noCapture.forEach(n => { n.style.visibility = "hidden"; });
 
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(el, {
+      const canvas = await html2canvas(document.body, {
         useCORS: true,
         allowTaint: false,
         backgroundColor: "#ffffff",
@@ -29,8 +26,8 @@ const BalanceSheet = () => {
         logging: false,
         timeout: 15000,
         imageTimeout: 5000,
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
         onclone: (doc) => {
           doc.querySelectorAll("img").forEach(img => {
             img.crossOrigin = "anonymous";
@@ -152,7 +149,7 @@ const BalanceSheet = () => {
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--primary)", borderTopColor: "transparent" }} />
         </div>
       ) : (
-        <div ref={contentRef} style={{ flex: 1, display: "flex", gap: 0, overflow: "hidden", minHeight: 0 }}>
+        <div style={{ flex: 1, display: "flex", gap: 0, overflow: "hidden", minHeight: 0 }}>
 
           {/* ── LEFT: DENA HAI (Blue) — independently scrollable ── */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: "2px solid var(--border)", minWidth: 0, overflow: "hidden" }}>

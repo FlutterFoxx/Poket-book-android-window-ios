@@ -73,6 +73,10 @@ Mobile-first, high-speed ledger accounting application (PoketBook / Udhar/Khaata
 - Monthly: ₹499 / 30 days
 - Yearly: ₹5799 / 365 days
 
+## Recent Fixes (May 2026)
+- BalanceSheet.jsx screenshot now targets `document.body` (full-screen like native screenshot), matching LedgerPage.jsx
+- Balance sheet PDF/Excel export now sorts parties A→Z by name (was previously sorted by amount desc)
+
 ## Pending / Backlog
 - MSG91 SMS OTP (needs MSG91_AUTH_KEY from user)
 - server.py refactor (1600+ lines monolith)
