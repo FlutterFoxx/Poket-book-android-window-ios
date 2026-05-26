@@ -89,7 +89,12 @@ async def login(data: UserLogin, response: Response, request: Request):
     await check_rate_limit(db, identifier, ip)
 
     user = await db.users.find_one({"email": email})
-    if not user or not verify_password(data.password, user.get("password_hash", "")):
+
+    # Google-only account trying email/password login — give a helpful message
+    if user and user.get("google_auth") and not user.get("password_hash"):
+        raise HTTPException(status_code=401, detail="This account uses Google login. Please click 'Continue with Google' to sign in.")
+
+    if not user or not verify_password(data.password, user.get("password_hash") or ""):
         await record_failed_attempt(db, identifier, ip)
         await audit_log(db, "login_failed", None, ip, email=email,
                         details={"reason": "invalid_credentials"})
