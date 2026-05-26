@@ -93,7 +93,7 @@ export function TallyConfirmModal({ tallyConfirm, setTallyConfirm, unlocked, bal
 export function WhatsAppModal({ waModal, setWaModal, waFrom, setWaFrom, waTo, setWaTo, waMode, setWaMode, handleWaSend, partyInfo }) {
   if (!waModal) return null;
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" data-testid="whatsapp-modal">
       <div className="w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl" style={{ background: "#fff" }}>
         <div className="px-5 py-4 flex items-center justify-between" style={{ background: "#25D366" }}>
           <p className="text-white font-bold text-base">Share Statement on WhatsApp</p>
