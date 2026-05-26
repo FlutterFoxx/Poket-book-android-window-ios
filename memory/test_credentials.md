@@ -29,6 +29,10 @@
 ## External Integrations
 - MSG91_AUTH_KEY → from msg91.com dashboard (phone OTP - placeholder ready)
 - GOOGLE_CLIENT_ID → 190943738344-q0ekv9t1t0g6rm5g333oqnl21tgugs71.apps.googleusercontent.com ✅
-- GOOGLE_CLIENT_SECRET → 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 ✅
+- GOOGLE_CLIENT_SECRET → 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G ✅
 - GOOGLE_REDIRECT_URI → https://party-tally-1.preview.emergentagent.com/api/oauth/sheets/callback
   ⚠️ Add this URI to Google Cloud Console → OAuth 2.0 Credentials → Authorized redirect URIs
+- RESEND_API_KEY → re_VXDb4BXn_KUbmaat51GLHJAGdDrs2zonh ✅
+  ⚠️ IMPORTANT: Resend is in testing mode — emails only deliver to poketbookin@gmail.com
+  ⚠️ To send to all users: Go to resend.com/domains → verify poketbook.in domain → update SENDER_EMAIL in backend/.env to noreply@poketbook.in
+- SENDER_EMAIL → onboarding@resend.dev (testing) → change to noreply@poketbook.in after domain verification
