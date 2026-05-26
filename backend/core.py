@@ -144,6 +144,9 @@ async def _decode_user(token: str) -> dict:
             raise HTTPException(status_code=401, detail="User not found")
         user["_id"] = str(user["_id"])
         user.pop("password_hash", None)
+        # Ensure email_verified is always present
+        if "email_verified" not in user:
+            user["email_verified"] = False
         # Add subscription info
         sub_type = user.get("subscription_type", "trial")
         sub_expires = user.get("subscription_expires_at")

@@ -48,12 +48,13 @@ async def startup_event():
             "created_at": now,
         })
 
-    # APScheduler for auto-backups
+    # APScheduler for auto-backups + subscription expiry reminders
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
         from routes.backup import run_scheduled_backups
         scheduler = AsyncIOScheduler(timezone="UTC")
-        scheduler.add_job(run_scheduled_backups, "interval", hours=24)  # daily Drive CSV sync
+        scheduler.add_job(run_scheduled_backups, "interval", hours=24)
+        scheduler.add_job(send_subscription_expiry_reminders, "interval", hours=24)
         scheduler.start()
         app.state.scheduler = scheduler
     except Exception as e:
@@ -88,3 +89,24 @@ async def shutdown_db_client():
     client.close()
 
 logging.basicConfig(level=logging.INFO)
+
+
+async def send_subscription_expiry_reminders():
+    """Daily cron: send renewal reminder emails to users expiring in 3 or 1 day(s)."""
+    from email_service import send_expiry_reminder
+    now = datetime.now(timezone.utc)
+    for days_ahead in [3, 1]:
+        window_start = now + timedelta(days=days_ahead - 0.5)
+        window_end   = now + timedelta(days=days_ahead + 0.5)
+        async for user in db.users.find({
+            "subscription_expires_at": {"$gte": window_start, "$lte": window_end},
+            "email": {"$exists": True, "$ne": None},
+            "role": {"$nin": ["admin", "superadmin"]},
+        }):
+            try:
+                await send_expiry_reminder(
+                    user["email"], user.get("name", ""),
+                    user.get("subscription_type", "trial"), days_ahead,
+                )
+            except Exception as e:
+                logging.error(f"Expiry reminder failed for {user.get('email')}: {e}")

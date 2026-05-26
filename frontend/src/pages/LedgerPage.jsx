@@ -828,7 +828,7 @@ const LedgerPage = () => {
                     onChange={(e) => setFastEntry((p) => ({ ...p, narration: e.target.value }))}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSave(); } else if (e.key === "Tab") { e.preventDefault(); saveRef.current?.focus(); } }}
                     tabIndex={4} placeholder="Optional: describe this entry..."
-                    className="pk-input" data-testid="fast-entry-narration-input" />
+                    className="pk-input" style={{ fontWeight: 700 }} data-testid="fast-entry-narration-input" />
                 </div>
                 {/* Row 4: Save button */}
                 <button ref={saveRef} onClick={handleSave} disabled={saving} tabIndex={5}
@@ -876,7 +876,7 @@ const LedgerPage = () => {
               <input ref={naamRef} type="number" step="0.01" min="0" value={fastEntry.naam}
                 onChange={(e) => setFastEntry((p) => ({ ...p, naam: e.target.value }))}
                 onKeyDown={(e) => handleFastKeyDown(e, jamaRef)} tabIndex={2} placeholder="0.00"
-                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-red-600 w-28 text-right"
+                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-red-600 w-28 text-right"
                 data-testid="fast-entry-naam-input" />
               <span className="text-xs font-bold text-white text-center">नाम (Credit)</span>
             </div>
@@ -885,7 +885,7 @@ const LedgerPage = () => {
               <input ref={jamaRef} type="number" step="0.01" min="0" value={fastEntry.jama}
                 onChange={(e) => setFastEntry((p) => ({ ...p, jama: e.target.value }))}
                 onKeyDown={(e) => handleFastKeyDown(e, narrationRef)} tabIndex={3} placeholder="0.00"
-                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-green-700 w-28 text-right"
+                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-green-700 w-28 text-right"
                 data-testid="fast-entry-jama-input" />
               <span className="text-xs font-bold text-white text-center">जमा (Debit)</span>
             </div>
@@ -895,7 +895,7 @@ const LedgerPage = () => {
                 onChange={(e) => setFastEntry((p) => ({ ...p, narration: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSave(); } else if (e.key === "Tab") { e.preventDefault(); saveRef.current?.focus(); } }}
                 tabIndex={4} placeholder="Narration..."
-                className="border-2 border-stone-600 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-stone-900"
+                className="border-2 border-stone-600 px-2 py-1.5 text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-stone-900"
                 data-testid="fast-entry-narration-input" />
               <span className="text-xs font-bold text-white text-center">Narration</span>
             </div>

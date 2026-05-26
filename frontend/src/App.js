@@ -25,6 +25,8 @@ import ExportHistoryPage from "@/pages/ExportHistoryPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
+import EmailVerifyPendingPage from "@/pages/EmailVerifyPendingPage";
+import VerifyEmailPage from "@/pages/VerifyEmailPage";
 
 const Layout = ({ children }) => (
   <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg-page)" }}>
@@ -73,6 +75,8 @@ function AppInner() {
         <Toaster richColors position="top-right" duration={1500} />
         <Routes>
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/verify-email-pending" element={<EmailVerifyPendingPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/how-to-use" element={<HowToUsePage />} />

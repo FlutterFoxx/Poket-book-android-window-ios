@@ -84,8 +84,9 @@ const Login = () => {
         if (!form.name.trim()) { toast.error("Name required"); setLoading(false); return; }
         const res = await api.post("/api/auth/register", { name: form.name, email: form.email, password: form.password });
         login(res.data);
-        toast.success("Account created! 7-day FREE trial started.");
-        navigate("/");
+        toast.success("Account created! Check your email to verify.");
+        // New users go to email verification pending screen
+        navigate(`/verify-email-pending?email=${encodeURIComponent(form.email)}`);
       }
     } catch (err) {
       const detail = err.response?.data?.detail;

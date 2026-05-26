@@ -33,3 +33,4 @@ google-auth==2.53.0
 google-auth-httplib2==0.4.0
 google-auth-oauthlib==1.4.0
 APScheduler==3.11.2
+resend>=2.0.0
