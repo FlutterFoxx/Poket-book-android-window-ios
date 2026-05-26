@@ -305,13 +305,21 @@ async def _upsert_google_user(email: str, name: str, picture: str):
 
 
 @router.get("/auth/google/login")
-async def google_login_url():
+async def google_login_url(request: Request):
     """Return the Google OAuth2 URL for the login flow."""
     import urllib.parse
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
-    redirect_uri = os.environ.get("GOOGLE_LOGIN_REDIRECT_URI", "")
-    if not client_id or not redirect_uri:
+    if not client_id:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
+
+    # Build redirect URI dynamically so it works on any deployment (preview, production, etc.)
+    # Prefer env var if set explicitly, otherwise derive from incoming request host
+    redirect_uri = os.environ.get("GOOGLE_LOGIN_REDIRECT_URI", "")
+    if not redirect_uri:
+        scheme = request.headers.get("x-forwarded-proto", "https")
+        host   = request.headers.get("x-forwarded-host", "") or request.url.hostname
+        redirect_uri = f"{scheme}://{host}/api/auth/google/callback"
+
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
@@ -325,7 +333,7 @@ async def google_login_url():
 
 
 @router.get("/auth/google/callback")
-async def google_login_callback(code: str = None, error: str = None):
+async def google_login_callback(request: Request, code: str = None, error: str = None):
     """Handle Google OAuth2 callback. Exchange code → tokens → JWT → redirect to frontend."""
     import httpx, urllib.parse
     from fastapi.responses import RedirectResponse
@@ -337,7 +345,12 @@ async def google_login_callback(code: str = None, error: str = None):
 
     client_id     = os.environ.get("GOOGLE_CLIENT_ID", "")
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-    redirect_uri  = os.environ.get("GOOGLE_LOGIN_REDIRECT_URI", "")
+    # Use same dynamic redirect URI that was used in /login
+    redirect_uri = os.environ.get("GOOGLE_LOGIN_REDIRECT_URI", "")
+    if not redirect_uri:
+        scheme = request.headers.get("x-forwarded-proto", "https")
+        host   = request.headers.get("x-forwarded-host", "") or request.url.hostname
+        redirect_uri = f"{scheme}://{host}/api/auth/google/callback"
 
     # Exchange authorization code for tokens
     try:

@@ -145,7 +145,10 @@ async def _decode_user(token: str) -> dict:
         user["_id"] = str(user["_id"])
         user.pop("password_hash", None)
         # Ensure email_verified is always present
-        if "email_verified" not in user:
+        # Google-authenticated users have pre-verified emails
+        if user.get("google_auth") or user.get("picture"):
+            user["email_verified"] = True
+        elif "email_verified" not in user:
             user["email_verified"] = False
         # Add subscription info
         sub_type = user.get("subscription_type", "trial")

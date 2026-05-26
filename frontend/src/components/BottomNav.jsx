@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Users, BookOpen, Scale, FileText } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, Scale, FileText, Settings, Trash2 } from "lucide-react";
 
 const BOTTOM_ITEMS = [
   { path: "/", icon: LayoutDashboard, label: "Home" },
@@ -8,6 +8,8 @@ const BOTTOM_ITEMS = [
   { path: "/ledger", icon: BookOpen, label: "Ledger" },
   { path: "/balance-sheet", icon: Scale, label: "Sheet" },
   { path: "/export", icon: FileText, label: "Statement" },
+  { path: "/settings", icon: Settings, label: "Settings" },
+  { path: "/recycle-bin", icon: Trash2, label: "Recycle" },
 ];
 
 const isDesktop = () => {
@@ -45,7 +47,9 @@ export const BottomNav = () => {
   if (isDesktop()) return null;
 
   const active = (path) =>
-    pathname === path || (path === "/ledger" && pathname.startsWith("/ledger"));
+    pathname === path || (path === "/ledger" && pathname.startsWith("/ledger")) ||
+    (path === "/settings" && pathname.startsWith("/settings")) ||
+    (path === "/recycle-bin" && pathname.startsWith("/recycle-bin"));
 
   return (
     <nav
@@ -76,8 +80,8 @@ export const BottomNav = () => {
               textDecoration: "none", transition: "color 0.15s", minWidth: 0,
             }}
           >
-            <Icon size={20} style={{ marginBottom: "2px" }} />
-            <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.2px", fontFamily: "var(--font-body)" }}>
+            <Icon size={18} style={{ marginBottom: "1px" }} />
+            <span style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.1px", fontFamily: "var(--font-body)" }}>
               {label}
             </span>
             {isActive && (

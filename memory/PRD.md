@@ -77,9 +77,9 @@ Mobile-first, high-speed ledger accounting application (PoketBook / Udhar/Khaata
 - BalanceSheet.jsx screenshot now targets `document.body` (full-screen like native screenshot), matching LedgerPage.jsx
 - Balance sheet PDF/Excel export now sorts parties A→Z by name (was previously sorted by amount desc)
 - Resend email integration: email verification on signup, banner for existing unverified users, subscription expiry reminders (cron job), password reset emails now sent via Resend
-- Custom Google OAuth implemented: Removed Emergent auth. GET /api/auth/google/login generates Google OAuth URL, GET /api/auth/google/callback handles redirect → JWT → frontend
-- Settings Email tab auto-opens when email is unverified; verify button calls resend-verification API
-- GOOGLE_LOGIN_REDIRECT_URI must be added to Google Cloud Console for full round-trip to work
+- Google-authenticated users now auto-marked email_verified=True in /me (fixes "Email Not Verified" bug for Gmail users)
+- Google OAuth redirect URI now dynamic from request host (works on both preview and production without separate env vars)
+- BottomNav: Added Settings + Recycle Bin (7 items total, icons/text slightly smaller)
 
 ## Pending / Backlog
 - MSG91 SMS OTP (needs MSG91_AUTH_KEY from user)
