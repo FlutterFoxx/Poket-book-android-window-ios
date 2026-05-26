@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
-import { downloadBlob } from "@/utils/saveFile";
+import { downloadBlob, openDirectDownload } from "@/utils/saveFile";
 import { RefreshCw, Printer, FileSpreadsheet, Camera } from "lucide-react";
 import { toast } from "sonner";
 
@@ -73,34 +73,19 @@ const BalanceSheet = () => {
   // PDF Print — fresh
   const handlePrint = async () => {
     if (!data) return;
-    const toastId = toast.loading("Generating PDF...");
-    try {
-      const res = await api.get("/api/export/balance-sheet/pdf", { responseType: "blob" });
-      toast.dismiss(toastId);
-      const date = new Date().toISOString().split("T")[0];
-      await downloadBlob(res.data, `PoketBook_BalanceSheet_${date}.pdf`);
-    } catch {
-      toast.dismiss(toastId);
-      toast.error("PDF generation failed — try again", { duration: 2500 });
-    }
-  };;
+    const date = new Date().toISOString().split("T")[0];
+    await openDirectDownload("/api/export/balance-sheet/pdf", `PoketBook_BalanceSheet_${date}.pdf`);
+  };
 
   const netBal = formatBalance(data?.net_balance || 0);
   const lena = data?.lena_hai || [];
   const dena = data?.dena_hai || [];
 
   // Authenticated Excel download (direct <a href> won't include auth token)
+  // Excel download
   const handleExcelDownload = async () => {
-    const toastId = toast.loading("Generating Excel...");
-    try {
-      const res = await api.get("/api/export/balance-sheet/excel", { responseType: "blob" });
-      toast.dismiss(toastId);
-      const date = new Date().toISOString().split("T")[0];
-      await downloadBlob(res.data, `PoketBook_BalanceSheet_${date}.xlsx`);
-    } catch {
-      toast.dismiss(toastId);
-      toast.error("Excel download failed — try again", { duration: 2000 });
-    }
+    const date = new Date().toISOString().split("T")[0];
+    await openDirectDownload("/api/export/balance-sheet/excel", `PoketBook_BalanceSheet_${date}.xlsx`);
   };
 
   return (

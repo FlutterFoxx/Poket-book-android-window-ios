@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
-import { downloadBlob } from "@/utils/saveFile";
+import { downloadBlob, openDirectDownload } from "@/utils/saveFile";
 import { toast } from "sonner";
 import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, MessageCircle, Camera } from "lucide-react";
 
@@ -305,21 +305,9 @@ const LedgerPage = () => {
   const handleWaSend = async () => {
     setWaModal(false);
     setSharingPdf(true);
-    const toastId = toast.loading("Generating PDF...");
-    try {
-      const params = waMode === "range" && waFrom && waTo
-        ? `?start_date=${waFrom}&end_date=${waTo}` : "";
-      const res = await api.get(
-        `/api/export/ledger/${selectedId}/pdf${params}`,
-        { responseType: "blob" }
-      );
-      toast.dismiss(toastId);
-      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_to_${waTo}` : "Statement"}.pdf`;
-      await downloadBlob(res.data, fileName);
-    } catch {
-      toast.dismiss(toastId);
-      toast.error("PDF failed — check connection and try again", { duration: 2500 });
-    }
+    const params = waMode === "range" && waFrom && waTo ? `?start_date=${waFrom}&end_date=${waTo}` : "";
+    const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_to_${waTo}` : "Statement"}.pdf`;
+    await openDirectDownload(`/api/export/ledger/${selectedId}/pdf${params}`, fileName);
     setSharingPdf(false);
   };
 
@@ -373,19 +361,8 @@ const LedgerPage = () => {
   // ── Print / Download PDF (fresh) ─────────────────────────────────────────────
   const handlePrint = async () => {
     if (!partyInfo || !selectedId) return;
-    const toastId = toast.loading("Generating PDF...");
-    try {
-      const res = await api.get(
-        `/api/export/ledger/${selectedId}/pdf`,
-        { responseType: "blob" }
-      );
-      toast.dismiss(toastId);
-      const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
-      await downloadBlob(res.data, fileName);
-    } catch {
-      toast.dismiss(toastId);
-      toast.error("PDF generation failed — try again", { duration: 2000 });
-    }
+    const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
+    await openDirectDownload(`/api/export/ledger/${selectedId}/pdf`, fileName);
   };
 
 

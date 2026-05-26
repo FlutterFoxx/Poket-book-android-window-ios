@@ -6,7 +6,7 @@ from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import uuid as uuid_lib
-from core import (db, get_current_user, _fmt_dt, format_entry, get_party_balance, recalculate_balances)
+from core import (db, get_current_user, get_current_user_dl, _fmt_dt, format_entry, get_party_balance, recalculate_balances)
 
 router = APIRouter(prefix="/api")
 
@@ -136,7 +136,7 @@ async def export_ledger_pdf(
     party_id: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dl)
 ):
     from reportlab.lib.pagesizes import landscape, A4
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, HRFlowable
@@ -207,7 +207,7 @@ async def export_ledger_excel(
     party_id: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dl)
 ):
     p = await db.parties.find_one({"_id": ObjectId(party_id), "user_id": current_user["_id"]})
     if not p:
@@ -272,7 +272,7 @@ async def export_ledger_excel(
                     headers={"Content-Disposition": f"attachment; filename=Statement_{p['name']}.xlsx"})
 
 @router.get("/export/balance-sheet/pdf")
-async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
+async def export_bs_pdf(current_user: dict = Depends(get_current_user_dl)):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, HRFlowable
     from reportlab.lib.styles import ParagraphStyle
@@ -398,7 +398,7 @@ async def export_bs_pdf(current_user: dict = Depends(get_current_user)):
                     headers={"Content-Disposition": "attachment; filename=PoketBook_BalanceSheet.pdf"})
 
 @router.get("/export/balance-sheet/excel")
-async def export_bs_excel(current_user: dict = Depends(get_current_user)):
+async def export_bs_excel(current_user: dict = Depends(get_current_user_dl)):
     import openpyxl
     from openpyxl.styles import Font
     data = await _fetch_balance_sheet(current_user)

@@ -121,6 +121,20 @@ async def get_current_user(request: Request) -> dict:
             token = auth_header[7:]
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    return await _decode_user(token)
+
+async def get_current_user_dl(request: Request) -> dict:
+    """Auth for direct download URLs — also accepts ?token= query param."""
+    token = request.query_params.get("token") or request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return await _decode_user(token)
+
+async def _decode_user(token: str) -> dict:
     try:
         payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "access":
