@@ -93,8 +93,10 @@ logging.basicConfig(level=logging.INFO)
 
 async def send_subscription_expiry_reminders():
     """Daily cron: send renewal reminder emails to users expiring in 3 or 1 day(s)."""
-    from email_service import send_expiry_reminder
+    from email_service import send_expiry_reminder, send_onboarding_day1, send_onboarding_day3
     now = datetime.now(timezone.utc)
+
+    # ── Subscription expiry reminders ──────────────────────────
     for days_ahead in [3, 1]:
         window_start = now + timedelta(days=days_ahead - 0.5)
         window_end   = now + timedelta(days=days_ahead + 0.5)
@@ -110,3 +112,33 @@ async def send_subscription_expiry_reminders():
                 )
             except Exception as e:
                 logging.error(f"Expiry reminder failed for {user.get('email')}: {e}")
+
+    # ── Onboarding series: Day 1 tips ───────────────────────────
+    day1_start = now - timedelta(days=1, hours=1)
+    day1_end   = now - timedelta(hours=23)
+    async for user in db.users.find({
+        "created_at": {"$gte": day1_start, "$lte": day1_end},
+        "email": {"$exists": True, "$ne": None},
+        "onboarding_day1_sent": {"$ne": True},
+        "role": {"$nin": ["admin", "superadmin"]},
+    }):
+        try:
+            await send_onboarding_day1(user["email"], user.get("name", ""))
+            await db.users.update_one({"_id": user["_id"]}, {"$set": {"onboarding_day1_sent": True}})
+        except Exception as e:
+            logging.error(f"Onboarding Day1 failed for {user.get('email')}: {e}")
+
+    # ── Onboarding series: Day 3 backup reminder ────────────────
+    day3_start = now - timedelta(days=3, hours=1)
+    day3_end   = now - timedelta(days=2, hours=23)
+    async for user in db.users.find({
+        "created_at": {"$gte": day3_start, "$lte": day3_end},
+        "email": {"$exists": True, "$ne": None},
+        "onboarding_day3_sent": {"$ne": True},
+        "role": {"$nin": ["admin", "superadmin"]},
+    }):
+        try:
+            await send_onboarding_day3(user["email"], user.get("name", ""))
+            await db.users.update_one({"_id": user["_id"]}, {"$set": {"onboarding_day3_sent": True}})
+        except Exception as e:
+            logging.error(f"Onboarding Day3 failed for {user.get('email')}: {e}")

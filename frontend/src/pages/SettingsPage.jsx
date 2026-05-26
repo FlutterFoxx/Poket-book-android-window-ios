@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Lock, Eye, EyeOff, CheckCircle, Shield } from "lucide-react";
+import { Lock, Eye, EyeOff, CheckCircle, Shield, Mail, RefreshCw } from "lucide-react";
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -12,6 +12,8 @@ const SettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [googleLinked, setGoogleLinked] = useState(false);
+  const [sendingVerify, setSendingVerify] = useState(false);
+  const [verifySent, setVerifySent] = useState(false);
 
   useEffect(() => {
     // Check if user has google_auth linked (from /auth/me response)
@@ -28,8 +30,20 @@ const SettingsPage = () => {
     toast.info("Complete Google sign-in and return here", { duration: 4000 });
   };
 
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
+  const handleSendVerification = async () => {
+    setSendingVerify(true);
+    try {
+      await api.post("/api/auth/resend-verification");
+      setVerifySent(true);
+      toast.success("Verification email sent! Check your inbox.", { duration: 4000 });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to send. Please try again.");
+    } finally {
+      setSendingVerify(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {    e.preventDefault();
     if (form.newPass !== form.confirm) { toast.error("New passwords don't match"); return; }
     if (form.newPass.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     setSaving(true);
@@ -82,12 +96,19 @@ const SettingsPage = () => {
         {/* Tabs */}
         <div style={{ display: "flex", border: "0.5px solid var(--border)", borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: "20px" }}>
           <button onClick={() => setTab("password")}
-            style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "password" ? "var(--primary)" : "#fff", color: tab === "password" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
-            <Lock size={14} style={{ display: "inline", marginRight: "6px" }} /> Change Password
+            style={{ flex: 1, padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "password" ? "var(--primary)" : "#fff", color: tab === "password" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
+            <Lock size={13} style={{ display: "inline", marginRight: "4px" }} /> Password
+          </button>
+          <button onClick={() => setTab("email")}
+            style={{ flex: 1, padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "email" ? "#0891B2" : "#fff", color: tab === "email" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s", position: "relative" }}>
+            <Mail size={13} style={{ display: "inline", marginRight: "4px" }} /> Email
+            {!user?.email_verified && (
+              <span style={{ position: "absolute", top: "6px", right: "8px", width: "7px", height: "7px", borderRadius: "50%", background: "#EF4444" }} />
+            )}
           </button>
           <button onClick={() => setTab("google")}
-            style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "google" ? "#4285F4" : "#fff", color: tab === "google" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" style={{ display: "inline", marginRight: "6px", verticalAlign: "middle" }}>
+            style={{ flex: 1, padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "google" ? "#4285F4" : "#fff", color: tab === "google" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" style={{ display: "inline", marginRight: "4px", verticalAlign: "middle" }}>
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -96,10 +117,79 @@ const SettingsPage = () => {
             Google
           </button>
           <button onClick={() => setTab("account")}
-            style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "account" ? "var(--primary)" : "#fff", color: tab === "account" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
-            <Shield size={14} style={{ display: "inline", marginRight: "6px" }} /> Account Info
+            style={{ flex: 1, padding: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", border: "none", background: tab === "account" ? "var(--primary)" : "#fff", color: tab === "account" ? "#fff" : "var(--text-secondary)", transition: "all 0.15s" }}>
+            <Shield size={13} style={{ display: "inline", marginRight: "4px" }} /> Account
           </button>
         </div>
+
+        {/* Email Verification Tab */}
+        {tab === "email" && (
+          <div className="pk-card" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>Email Verification</h2>
+
+            {/* Status card */}
+            <div style={{
+              borderRadius: "10px", padding: "14px 16px",
+              background: user?.email_verified ? "#DCFCE7" : "#FFF7ED",
+              border: `1px solid ${user?.email_verified ? "#86EFAC" : "#FED7AA"}`,
+              display: "flex", alignItems: "center", gap: "12px",
+            }}>
+              {user?.email_verified
+                ? <CheckCircle size={22} color="#16A34A" style={{ flexShrink: 0 }} />
+                : <Mail size={22} color="#EA580C" style={{ flexShrink: 0 }} />
+              }
+              <div>
+                <p style={{ fontWeight: 700, fontSize: "14px", color: user?.email_verified ? "#166534" : "#9A3412", margin: "0 0 2px" }}>
+                  {user?.email_verified ? "Email Verified" : "Email Not Verified"}
+                </p>
+                <p style={{ fontSize: "12px", color: user?.email_verified ? "#15803D" : "#C2410C", margin: 0 }}>
+                  {user?.email || "No email on account"}
+                </p>
+              </div>
+            </div>
+
+            {/* Action */}
+            {!user?.email_verified && user?.email && (
+              <>
+                <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0, lineHeight: "1.6" }}>
+                  Verify your email address to secure your account and receive important notifications about your Khaata.
+                </p>
+                <button
+                  onClick={handleSendVerification}
+                  disabled={sendingVerify || verifySent}
+                  data-testid="settings-send-verify-btn"
+                  style={{
+                    width: "100%", padding: "13px 16px", borderRadius: "10px", border: "none",
+                    background: verifySent ? "#16A34A" : "#0891B2",
+                    color: "#fff", fontSize: "15px", fontWeight: 700,
+                    cursor: sendingVerify || verifySent ? "default" : "pointer",
+                    opacity: sendingVerify ? 0.7 : 1,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  }}
+                >
+                  {verifySent ? (
+                    <><CheckCircle size={16} /> Verification Email Sent</>
+                  ) : sendingVerify ? (
+                    <><RefreshCw size={16} className="animate-spin" /> Sending...</>
+                  ) : (
+                    <><Mail size={16} /> Send Verification Email</>
+                  )}
+                </button>
+                {verifySent && (
+                  <p style={{ fontSize: "12px", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
+                    Check your inbox and click the link to verify. Link expires in 24 hours.
+                  </p>
+                )}
+              </>
+            )}
+
+            {user?.email_verified && (
+              <p style={{ fontSize: "13px", color: "#166534", textAlign: "center", margin: 0 }}>
+                Your email is verified. Your account is fully secured.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Google Account Tab */}
         {tab === "google" && (

@@ -110,3 +110,71 @@ async def send_password_reset_email(to_email: str, name: str, token: str):
     <p style="color: #94a3b8; font-size: 13px; text-align: center;">This link expires in <strong>1 hour</strong>. If you didn't request a password reset, ignore this email — your account is safe.</p>
     """
     await _send(to_email, "Reset your PoketBook password", _wrap(body))
+
+
+# ── Onboarding Series ──────────────────────────────────────────────────────────
+
+async def send_onboarding_day1(to_email: str, name: str):
+    """Day 1: Naam & Jama tips — how to make first entry."""
+    ledger_url = f"{APP_URL}/ledger"
+    body = f"""
+    <h2 style="color: #1E3A5F; margin-top: 0; font-size: 22px;">Aapka pehla Khaata entry kaise karein?</h2>
+    <p style="color: #475569; font-size: 15px; margin-bottom: 8px;">Namaste <strong>{name or 'dost'}</strong>! 🙏</p>
+    <p style="color: #475569; font-size: 15px;">PoketBook mein double-entry accounting bahut simple hai. Bas yeh 2 rules yaad rakhein:</p>
+
+    <table style="width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 10px; overflow: hidden;">
+      <tr style="background: #DBEAFE;">
+        <td style="padding: 14px 18px; font-weight: 800; color: #1D4ED8; font-size: 15px; border-bottom: 1px solid #BFDBFE;">NAAM (नाम) — Credit</td>
+        <td style="padding: 14px 18px; color: #1D4ED8; font-size: 14px; border-bottom: 1px solid #BFDBFE;">Aapne party ko <strong>paise diye</strong> ya udhaar diya<br><span style="font-size:12px;opacity:0.8;">→ Party DENA HAI mein aayega (Blue)</span></td>
+      </tr>
+      <tr style="background: #FEE2E2;">
+        <td style="padding: 14px 18px; font-weight: 800; color: #B91C1C; font-size: 15px;">JAMA (जमा) — Debit</td>
+        <td style="padding: 14px 18px; color: #B91C1C; font-size: 14px;">Party ne aapko <strong>paise diye</strong> ya payment ki<br><span style="font-size:12px;opacity:0.8;">→ Party LENA HAI mein aayega (Red)</span></td>
+      </tr>
+    </table>
+
+    <p style="color: #475569; font-size: 14px;"><strong>Pro Tip:</strong> F1 key dabao — entry form instantly open hoga. Fast keyboard entry ke liye Arrows + Tab use karein!</p>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="{ledger_url}"
+         style="background: linear-gradient(135deg, #1E3A5F, #2563EB); color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 700; display: inline-block;">
+        Apna Pehla Entry Karein →
+      </a>
+    </div>
+    <p style="color: #94a3b8; font-size: 13px; text-align: center;">Koi sawaal? Reply karein is email pe — hum help karenge!</p>
+    """
+    await _send(to_email, "PoketBook: Naam aur Jama kaise use karein? (Quick Guide)", _wrap(body))
+
+
+async def send_onboarding_day3(to_email: str, name: str):
+    """Day 3: Backup & Balance Sheet reminder."""
+    backup_url = f"{APP_URL}/"
+    balance_url = f"{APP_URL}/balance-sheet"
+    body = f"""
+    <h2 style="color: #1E3A5F; margin-top: 0; font-size: 22px;">Aapka Khaata safe hai? Backup zaroor lagaayein!</h2>
+    <p style="color: #475569; font-size: 15px; margin-bottom: 8px;">Namaste <strong>{name or 'dost'}</strong>! 🙏</p>
+    <p style="color: #475569; font-size: 15px;">3 din ho gaye PoketBook mein — great start! Ab apna data secure karne ke liye yeh 2 kaam karein:</p>
+
+    <div style="background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 10px; padding: 16px 20px; margin: 20px 0;">
+      <p style="color: #166534; font-weight: 700; font-size: 15px; margin: 0 0 6px;">✓ Google Sheets Backup</p>
+      <p style="color: #15803D; font-size: 13px; margin: 0;">Dashboard → Connect Google Sheets → Backup Now. Aapka poora Khaata Google Drive mein safe rahega.</p>
+    </div>
+
+    <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 16px 20px; margin: 20px 0;">
+      <p style="color: #1D4ED8; font-weight: 700; font-size: 15px; margin: 0 0 6px;">✓ Balance Sheet dekho</p>
+      <p style="color: #1E40AF; font-size: 13px; margin: 0;">Ek nazar mein dekho: Kaun kitna dena hai, kaun kitna lena hai. A-to-Z sorted.</p>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin: 28px 0; text-align: center;">
+      <a href="{backup_url}"
+         style="background: #16A34A; color: #ffffff; padding: 13px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 700; display: inline-block; flex: 1;">
+        Backup Setup
+      </a>
+      <a href="{balance_url}"
+         style="background: #1D4ED8; color: #ffffff; padding: 13px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 700; display: inline-block; flex: 1;">
+        Balance Sheet
+      </a>
+    </div>
+    <p style="color: #94a3b8; font-size: 13px; text-align: center;">Aapka free trial chal raha hai — enjoy PoketBook!</p>
+    """
+    await _send(to_email, "PoketBook: Kya aapne Google Backup liya? (3-din reminder)", _wrap(body))
