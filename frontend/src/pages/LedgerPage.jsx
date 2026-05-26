@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, formatDate, formatTime, today, toTitleCase } from "@/utils/helpers";
-import { downloadBlob, openDirectDownload } from "@/utils/saveFile";
+import { androidExport, androidExportBlob } from "@/utils/androidExport";
 import { toast } from "sonner";
 import { Lock, Printer, Pencil, Trash2, X, ChevronDown, ChevronUp, BookOpen, MessageCircle, Camera } from "lucide-react";
 
@@ -309,7 +309,7 @@ const LedgerPage = () => {
     setSharingPdf(true);
     const params = waMode === "range" && waFrom && waTo ? `?start_date=${waFrom}&end_date=${waTo}` : "";
     const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_${waMode === "range" ? `${waFrom}_to_${waTo}` : "Statement"}.pdf`;
-    await openDirectDownload(`/api/export/ledger/${selectedId}/pdf${params}`, fileName);
+    await androidExport(`/api/export/ledger/${selectedId}/pdf${params}`, fileName, "share");
     setSharingPdf(false);
   };
 
@@ -348,7 +348,7 @@ const LedgerPage = () => {
       canvas.toBlob(async (blob) => {
         const date = new Date().toISOString().split("T")[0];
         const name = `ledger_${toTitleCase(partyInfo?.name || "party")}_${date}.png`;
-        await downloadBlob(blob, name);
+        await androidExportBlob(blob, name, "save");
       }, "image/png");
 
     } catch (err) {
@@ -363,7 +363,7 @@ const LedgerPage = () => {
   const handlePrint = async () => {
     if (!partyInfo || !selectedId) return;
     const fileName = `PoketBook_${toTitleCase(partyInfo.name)}_Statement.pdf`;
-    await openDirectDownload(`/api/export/ledger/${selectedId}/pdf`, fileName);
+    await androidExport(`/api/export/ledger/${selectedId}/pdf`, fileName, "save");
   };
 
 

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
-import { downloadBlob, openDirectDownload } from "@/utils/saveFile";
+import { androidExport, androidExportBlob } from "@/utils/androidExport";
 import { RefreshCw, Printer, FileSpreadsheet, Camera } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,7 +43,7 @@ const BalanceSheet = () => {
 
       canvas.toBlob(async (blob) => {
         const date = new Date().toISOString().split("T")[0];
-        await downloadBlob(blob, `balance-sheet_${date}.png`);
+        await androidExportBlob(blob, `balance-sheet_${date}.png`, "save");
       }, "image/png");
 
     } catch (err) {
@@ -74,7 +74,7 @@ const BalanceSheet = () => {
   const handlePrint = async () => {
     if (!data) return;
     const date = new Date().toISOString().split("T")[0];
-    await openDirectDownload("/api/export/balance-sheet/pdf", `PoketBook_BalanceSheet_${date}.pdf`);
+    await androidExport("/api/export/balance-sheet/pdf", `PoketBook_BalanceSheet_${date}.pdf`, "save");
   };
 
   const netBal = formatBalance(data?.net_balance || 0);
@@ -85,7 +85,7 @@ const BalanceSheet = () => {
   // Excel download
   const handleExcelDownload = async () => {
     const date = new Date().toISOString().split("T")[0];
-    await openDirectDownload("/api/export/balance-sheet/excel", `PoketBook_BalanceSheet_${date}.xlsx`);
+    await androidExport("/api/export/balance-sheet/excel", `PoketBook_BalanceSheet_${date}.xlsx`, "save");
   };
 
   return (

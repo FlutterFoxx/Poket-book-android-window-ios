@@ -21,6 +21,7 @@ import ExportPage from "@/pages/ExportPage";
 import SettingsPage from "@/pages/SettingsPage";
 import RecycleBinPage from "@/pages/RecycleBinPage";
 import DownloadPage from "@/pages/DownloadPage";
+import ExportHistoryPage from "@/pages/ExportHistoryPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
@@ -87,6 +88,7 @@ function AppInner() {
           <Route path="/settings" element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
           <Route path="/recycle-bin" element={<ProtectedRoute><Layout><RecycleBinPage /></Layout></ProtectedRoute>} />
           <Route path="/download" element={<DownloadPage />} />
+          <Route path="/export-history" element={<ProtectedRoute><Layout><ExportHistoryPage /></Layout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

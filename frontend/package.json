@@ -7,7 +7,9 @@
   "dependencies": {
     "@capacitor/android": "6.2.0",
     "@capacitor/core": "6.2.0",
+    "@capacitor/filesystem": "^6.0.0",
     "@capacitor/ios": "6.2.0",
+    "@capacitor/share": "^6.0.0",
     "@radix-ui/react-dialog": "^1.1.11",
     "@radix-ui/react-select": "^2.2.2",
     "@radix-ui/react-slot": "^1.2.0",

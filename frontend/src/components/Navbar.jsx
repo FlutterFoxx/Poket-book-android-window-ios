@@ -15,6 +15,7 @@ const navItems = [
   { path: "/export", label: "Statement", icon: FileText, testId: "export" },
   { path: "/settings", label: "Settings", icon: Settings, testId: "settings" },
   { path: "/recycle-bin", label: "Recycle Bin", icon: Trash2, testId: "recycle-bin" },
+  { path: "/export-history", label: "Export History", icon: Shield, testId: "export-history" },
 ];
 
 // ── UserMenu — extracted sub-component (reduces Navbar complexity) ────────────
