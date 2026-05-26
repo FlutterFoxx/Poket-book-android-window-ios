@@ -279,66 +279,108 @@ async def verify_otp_endpoint(data: PhoneVerifyOTP, response: Response):
             "access_token": access_token, "refresh_token": refresh_tok}
 
 
-# ─── Google OAuth via Emergent Auth ──────────────────────────────────────────
+# ─── Google OAuth (Custom — PoketBook's own Google credentials) ───────────────
 
-@router.post("/auth/google")
-async def google_auth(request: Request, response: Response):
-    """Exchange Emergent Auth session_id for a PoketBook JWT token.
-    Playbook: session_id from frontend → call Emergent session-data → create/login user → return JWT.
-    """
-    import httpx
-    body = await request.json()
-    session_id = body.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
-
-    # Call Emergent Auth session-data endpoint (server-side only)
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(
-                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-                headers={"X-Session-ID": session_id}
-            )
-        if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid Google session")
-        gdata = resp.json()
-    except Exception as e:
-        logging.error(f"Google auth error: {e}")
-        raise HTTPException(status_code=401, detail="Google auth failed")
-
-    email = gdata.get("email", "").lower()
-    name = gdata.get("name", email.split("@")[0])
-    if not email:
-        raise HTTPException(status_code=400, detail="No email from Google")
-
+async def _upsert_google_user(email: str, name: str, picture: str):
+    """Find or create a user from Google auth data. Returns (user_id, is_new)."""
     now = datetime.now(timezone.utc)
-
-    # Find or create user
     user = await db.users.find_one({"email": email})
     if not user:
         result = await db.users.insert_one({
             "email": email, "name": name, "role": "user",
-            "password_hash": None,  # No password for Google users
-            "google_auth": True, "picture": gdata.get("picture"),
+            "password_hash": None, "google_auth": True, "picture": picture,
+            "email_verified": True,
             "created_at": now,
             "subscription_type": "trial",
             "subscription_started_at": now,
             "subscription_expires_at": now + timedelta(days=7),
             "subscription_is_active": True,
         })
-        user_id = str(result.inserted_id)
+        return str(result.inserted_id), True, None
     else:
-        user_id = str(user["_id"])
-        # Update name/picture from Google
-        await db.users.update_one({"_id": user["_id"]}, {"$set": {"name": name, "picture": gdata.get("picture"), "google_auth": True}})
+        await db.users.update_one({"_id": user["_id"]}, {
+            "$set": {"name": name, "picture": picture, "google_auth": True, "email_verified": True}
+        })
+        return str(user["_id"]), False, user.get("role", "user")
 
-    access_token = create_access_token(user_id, email)
-    refresh_token = create_refresh_token(user_id)
-    return {
-        "id": user_id, "email": email, "name": name, "role": user.get("role", "user") if user else "user",
-        "email_verified": True,  # Google-authenticated emails are pre-verified
-        "access_token": access_token, "refresh_token": refresh_token,
+
+@router.get("/auth/google/login")
+async def google_login_url():
+    """Return the Google OAuth2 URL for the login flow."""
+    import urllib.parse
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    redirect_uri = os.environ.get("GOOGLE_LOGIN_REDIRECT_URI", "")
+    if not client_id or not redirect_uri:
+        raise HTTPException(status_code=500, detail="Google OAuth not configured")
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "online",
+        "prompt": "select_account",
     }
+    url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+    return {"url": url}
+
+
+@router.get("/auth/google/callback")
+async def google_login_callback(code: str = None, error: str = None):
+    """Handle Google OAuth2 callback. Exchange code → tokens → JWT → redirect to frontend."""
+    import httpx, urllib.parse
+    from fastapi.responses import RedirectResponse
+
+    app_url = os.environ.get("APP_URL", os.environ.get("FRONTEND_URL", "https://poketbook.in"))
+
+    if error or not code:
+        return RedirectResponse(f"{app_url}/login?error=google_cancelled")
+
+    client_id     = os.environ.get("GOOGLE_CLIENT_ID", "")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    redirect_uri  = os.environ.get("GOOGLE_LOGIN_REDIRECT_URI", "")
+
+    # Exchange authorization code for tokens
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            token_resp = await client.post("https://oauth2.googleapis.com/token", data={
+                "code": code, "client_id": client_id, "client_secret": client_secret,
+                "redirect_uri": redirect_uri, "grant_type": "authorization_code",
+            })
+        if token_resp.status_code != 200:
+            logging.error(f"Google token exchange failed: {token_resp.text}")
+            return RedirectResponse(f"{app_url}/login?error=token_exchange_failed")
+        token_data = token_resp.json()
+        id_token_val = token_data.get("id_token", "")
+    except Exception as e:
+        logging.error(f"Google OAuth token exchange error: {e}")
+        return RedirectResponse(f"{app_url}/login?error=network_error")
+
+    # Verify ID token via Google's tokeninfo endpoint
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            info_resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": id_token_val})
+        if info_resp.status_code != 200:
+            return RedirectResponse(f"{app_url}/login?error=invalid_token")
+        gdata = info_resp.json()
+    except Exception as e:
+        logging.error(f"Google tokeninfo error: {e}")
+        return RedirectResponse(f"{app_url}/login?error=token_verify_failed")
+
+    email = gdata.get("email", "").lower()
+    name  = gdata.get("name", email.split("@")[0])
+    picture = gdata.get("picture", "")
+    if not email:
+        return RedirectResponse(f"{app_url}/login?error=no_email")
+
+    user_id, is_new, existing_role = await _upsert_google_user(email, name, picture)
+    role = "user" if is_new else (existing_role or "user")
+
+    access_token  = create_access_token(user_id, email)
+    refresh_token = create_refresh_token(user_id)
+
+    # Redirect to frontend AuthCallbackPage with tokens in URL hash
+    params = urllib.parse.urlencode({"token": access_token, "refresh_token": refresh_token})
+    return RedirectResponse(f"{app_url}/auth/callback#{params}")
 
 
 # ─── Email Verification ───────────────────────────────────────────────────────
