@@ -315,27 +315,21 @@ const LedgerPage = () => {
 
   // ── Screenshot (fresh) ───────────────────────────────────────────────────────
   const handleScreenshot = async () => {
-    const el = tableContainerRef.current;
-    if (!el) { toast.error("Nothing to capture"); return; }
-    const toastId = toast.loading("Capturing screenshot...");
+    // Capture full screen (like native screenshot) - use document.body
+    const toastId = toast.loading("Taking screenshot...");
     try {
       const noCapture = document.querySelectorAll(".no-screenshot");
       noCapture.forEach(n => { n.style.visibility = "hidden"; });
 
-      const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.Capacitor?.isNativePlatform?.();
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(el, {
-        useCORS: true,
-        allowTaint: false,
+      const canvas = await html2canvas(document.body, {
+        useCORS: true, allowTaint: false,
         backgroundColor: "#ffffff",
-        scale: 1.5,
-        logging: false,
-        timeout: 15000,
-        imageTimeout: 5000,
-        windowWidth: el.clientWidth || el.scrollWidth,
-        windowHeight: isMobileDevice ? el.clientHeight : el.scrollHeight,
-        height: isMobileDevice ? el.clientHeight : undefined,
-        width: el.clientWidth || el.scrollWidth,
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        logging: false, timeout: 15000, imageTimeout: 5000,
+        windowWidth: window.innerWidth, windowHeight: window.innerHeight,
+        width: window.innerWidth, height: window.innerHeight,
+        x: 0, y: window.scrollY || 0,
         onclone: (doc) => {
           doc.querySelectorAll("img").forEach(img => { img.crossOrigin = "anonymous"; });
         },
@@ -344,10 +338,9 @@ const LedgerPage = () => {
       noCapture.forEach(n => { n.style.visibility = ""; });
       toast.dismiss(toastId);
 
-      // Convert canvas to blob and download
       canvas.toBlob(async (blob) => {
         const date = new Date().toISOString().split("T")[0];
-        const name = `ledger_${toTitleCase(partyInfo?.name || "party")}_${date}.png`;
+        const name = `PoketBook_${toTitleCase(partyInfo?.name || "Ledger")}_${date}.png`;
         await androidExportBlob(blob, name, "save");
       }, "image/png");
 
@@ -500,18 +493,16 @@ const LedgerPage = () => {
                 <Lock size={12} /> <span className="hidden lg:inline">Tally</span> ({unlocked})
               </button>
             )}
-            {/* PDF/Screenshot/WhatsApp: only on web/iOS, not on Android */}
-            {!isAndroid && (<>
-              <button onClick={handleWhatsAppShare} disabled={sharingPdf} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share PDF on WhatsApp">
-                <MessageCircle size={13} className={sharingPdf ? "animate-spin" : ""} /> <span className="hidden md:inline">{sharingPdf ? "..." : "Share"}</span>
-              </button>
-              <button onClick={handlePrint} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-stone-600 text-white hover:bg-stone-700 rounded" data-testid="export-pdf-btn" title="Print PDF">
-                <Printer size={12} /> <span className="hidden lg:inline">Print</span>
-              </button>
-              <button onClick={handleScreenshot} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: "#0891B2" }} data-testid="screenshot-btn" title="Screenshot (PNG)">
-                <Camera size={12} /> <span className="hidden lg:inline">Screenshot</span>
-              </button>
-            </>)}
+            {/* PDF/WhatsApp/Screenshot — visible on all platforms */}
+            <button onClick={handleWhatsAppShare} disabled={sharingPdf} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded disabled:opacity-50" style={{ background: "#25D366" }} data-testid="whatsapp-share-btn" title="Share PDF">
+              <MessageCircle size={13} className={sharingPdf ? "animate-spin" : ""} /> <span className="hidden md:inline">{sharingPdf ? "..." : "Share"}</span>
+            </button>
+            <button onClick={handlePrint} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold bg-stone-600 text-white hover:bg-stone-700 rounded" data-testid="export-pdf-btn" title="Download PDF">
+              <Printer size={12} /> <span className="hidden lg:inline">PDF</span>
+            </button>
+            <button onClick={handleScreenshot} className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold text-white rounded" style={{ background: "#0891B2" }} data-testid="screenshot-btn" title="Screenshot">
+              <Camera size={12} /> <span className="hidden lg:inline">Shot</span>
+            </button>
           </div>
         )}
       </div>
