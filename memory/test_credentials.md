@@ -33,6 +33,6 @@
 - GOOGLE_REDIRECT_URI → https://party-tally-1.preview.emergentagent.com/api/oauth/sheets/callback
   ⚠️ Add this URI to Google Cloud Console → OAuth 2.0 Credentials → Authorized redirect URIs
 - RESEND_API_KEY → re_VXDb4BXn_KUbmaat51GLHJAGdDrs2zonh ✅
-  ⚠️ IMPORTANT: Resend is in testing mode — emails only deliver to poketbookin@gmail.com
-  ⚠️ To send to all users: Go to resend.com/domains → verify poketbook.in domain → update SENDER_EMAIL in backend/.env to noreply@poketbook.in
-- SENDER_EMAIL → onboarding@resend.dev (testing) → change to noreply@poketbook.in after domain verification
+  ⚠️ Domain verification status: email to admin@khaata.com went through (may be verified)
+  ⚠️ If emails fail for other users: Go to resend.com/domains → verify poketbook.in domain
+- SENDER_EMAIL → noreply@poketbook.in (updated from onboarding@resend.dev)

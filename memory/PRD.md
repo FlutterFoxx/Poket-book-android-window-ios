@@ -77,6 +77,9 @@ Mobile-first, high-speed ledger accounting application (PoketBook / Udhar/Khaata
 - BalanceSheet.jsx screenshot now targets `document.body` (full-screen like native screenshot), matching LedgerPage.jsx
 - Balance sheet PDF/Excel export now sorts parties A→Z by name (was previously sorted by amount desc)
 - Resend email integration: email verification on signup, banner for existing unverified users, subscription expiry reminders (cron job), password reset emails now sent via Resend
+- Settings page: Added "Email" tab with verification status, red dot indicator, and "Send Verification Email" button
+- Onboarding email series: Day 1 (Naam/Jama tips), Day 3 (backup reminder) via daily cron
+- SENDER_EMAIL updated to noreply@poketbook.in — domain verification on Resend required for delivery to all users
 - Entry form inputs (naam, jama, narration) text is now bold across mobile and desktop forms
 
 ## Pending / Backlog
