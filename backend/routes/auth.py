@@ -14,14 +14,26 @@ from security import (
     check_rate_limit, record_failed_attempt, clear_rate_limit,
     set_auth_cookies, audit_log,
 )
-# Defensive import — if email_service fails (e.g. resend not installed), auth still works
-try:
-    from email_service import send_verification_email, send_password_reset_email
-except Exception as _email_import_err:
-    import logging as _log
-    _log.warning(f"email_service unavailable: {_email_import_err} — email features disabled")
-    async def send_verification_email(*a, **kw): pass
-    async def send_password_reset_email(*a, **kw): pass
+# ── Email helpers — fully isolated, never block auth ─────────────────────────
+# All email sending is lazy-imported inside a background task.
+# If resend/email_service fails for any reason, it logs and continues silently.
+
+async def _send_email_task(func_name: str, *args):
+    """Fire-and-forget email wrapper. Imports email_service lazily inside the task."""
+    try:
+        import email_service as _es
+        fn = getattr(_es, func_name, None)
+        if fn:
+            await fn(*args)
+    except Exception as _e:
+        logging.warning(f"Email '{func_name}' failed silently: {_e}")
+
+def _fire_email(func_name: str, *args):
+    """Schedule email sending as a background task without blocking the request."""
+    try:
+        asyncio.create_task(_send_email_task(func_name, *args))
+    except Exception:
+        pass  # Never crash auth due to email issues
 
 router = APIRouter(prefix="/api")
 
@@ -76,8 +88,7 @@ async def register(data: UserCreate, response: Response, request: Request):
         "expires_at": now + timedelta(hours=24), "used": False, "created_at": now,
     })
     # Fire-and-forget — don't block the registration response
-    asyncio.create_task(send_verification_email(email, name, verify_token))
-
+    _fire_email("send_verification_email", email, name, verify_token)
     return {"id": user_id, "email": email, "name": name, "role": "user",
             "email_verified": False,
             "access_token": access_token, "refresh_token": refresh_tok}
@@ -171,7 +182,7 @@ async def forgot_password(request: Request):
         reset_token = sec.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
         await db.password_resets.insert_one({"email": email, "token": reset_token, "expires_at": expires_at, "used": False})
-        asyncio.create_task(send_password_reset_email(email, user.get("name", ""), reset_token))
+        _fire_email("send_password_reset_email", email, user.get("name", ""), reset_token)
     return {"message": "If this email is registered, a reset link has been sent."}
 
 @router.post("/auth/reset-password")
@@ -455,5 +466,5 @@ async def resend_verification(current_user: dict = Depends(get_current_user)):
         "user_id": current_user["_id"], "email": email, "token": verify_token,
         "expires_at": now + timedelta(hours=24), "used": False, "created_at": now,
     })
-    asyncio.create_task(send_verification_email(email, current_user.get("name", ""), verify_token))
+    _fire_email("send_verification_email", email, current_user.get("name", ""), verify_token)
     return {"message": "Verification email sent"}

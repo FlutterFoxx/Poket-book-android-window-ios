@@ -29,8 +29,12 @@ async def health_check():
 
 # ── Cron function — MUST be defined BEFORE startup_event references it ────────
 async def send_subscription_expiry_reminders():
-    """Daily cron: send renewal reminder emails to users expiring in 3 or 1 day(s)."""
-    from email_service import send_expiry_reminder, send_onboarding_day1, send_onboarding_day3
+    """Daily cron: send renewal reminder emails. Email failures never crash the cron."""
+    try:
+        from email_service import send_expiry_reminder, send_onboarding_day1, send_onboarding_day3
+    except Exception as e:
+        logging.warning(f"email_service unavailable in cron: {e}")
+        return
     now = datetime.now(timezone.utc)
 
     # ── Subscription expiry reminders ──────────────────────────
@@ -122,6 +126,7 @@ async def startup_event():
         app.state.scheduler = scheduler
     except Exception as e:
         logging.warning(f"APScheduler failed to start: {e}")
+
 
 
 # ── Mount routers ────────────────────────────────────────────────────────────
