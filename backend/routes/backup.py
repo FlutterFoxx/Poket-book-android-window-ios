@@ -130,23 +130,47 @@ async def backup_to_google_sheets(current_user: dict = Depends(get_current_user)
         # Fetch all data
         uid = current_user["_id"]
         parties = await db.parties.find({"user_id": uid, "is_deleted": {"$ne": True}}).to_list(None)
+
+        # Batch-fetch all party balances in one aggregation (avoids N+1 per party)
+        party_ids = [str(p["_id"]) for p in parties]
+        bal_pipeline = [
+            {"$match": {"party_id": {"$in": party_ids}, "is_deleted": {"$ne": True}}},
+            {"$sort": {"date": 1, "created_at": 1}},
+            {"$group": {"_id": "$party_id", "balance": {"$last": "$balance"}}},
+        ]
+        bal_map = {r["_id"]: r["balance"] for r in await db.ledger_entries.aggregate(bal_pipeline).to_list(None)}
+
         # Parties sheet
         parties_rows = [["ID", "Name", "Mobile", "Address", "Current Balance", "Created At"]]
         for p in parties:
             pid = str(p["_id"])
-            bal = await get_party_balance(pid)
+            bal = bal_map.get(pid, 0)
             parties_rows.append([pid, p["name"], p.get("mobile",""), p.get("address",""), bal, str(p.get("created_at",""))])
-        # Ledger entries
+
+        # Batch-fetch ALL entries for this user's parties (avoids N+1 per party)
+        all_entries_raw = await db.ledger_entries.find(
+            {"party_id": {"$in": party_ids}, "is_deleted": {"$ne": True}},
+            sort=[("date", 1), ("created_at", 1)]
+        ).to_list(None)
+
+        # Batch-fetch all counterparty names
+        cp_ids = list({e.get("counterparty_id","") for e in all_entries_raw if e.get("counterparty_id")})
+        cp_docs = await db.parties.find({"_id": {"$in": [ObjectId(c) for c in cp_ids if c]}}).to_list(None)
+        cp_cache = {str(c["_id"]): c["name"] for c in cp_docs}
+
+        # Group entries by party_id
+        from collections import defaultdict
+        entries_by_party: dict = defaultdict(list)
+        for e in all_entries_raw:
+            entries_by_party[e["party_id"]].append(e)
+        party_name_map = {str(p["_id"]): p["name"] for p in parties}
+
+        # Ledger entries sheet
         entries_rows = [["Date", "Time", "Party", "Counterparty", "Credit (Naam)", "Debit (Jama)", "Narration", "Balance", "Balance Type", "Locked"]]
-        cp_cache = {}
-        for p in parties:
-            pid = str(p["_id"])
-            entries = await db.ledger_entries.find({"party_id": pid, "is_deleted": {"$ne": True}}, sort=[("date",1),("created_at",1)]).to_list(None)
-            for e in entries:
+        for pid in party_ids:
+            p_name = party_name_map.get(pid, "")
+            for e in entries_by_party.get(pid, []):
                 cp_id = e.get("counterparty_id","")
-                if cp_id and cp_id not in cp_cache:
-                    cp_doc = await db.parties.find_one({"_id": ObjectId(cp_id)})
-                    cp_cache[cp_id] = cp_doc["name"] if cp_doc else ""
                 bal = e.get("balance", 0)
                 bal_type = "Dena Hai" if bal > 0 else ("Lena Hai" if bal < 0 else "Settled")
                 created = str(e.get("created_at",""))
@@ -157,7 +181,7 @@ async def backup_to_google_sheets(current_user: dict = Depends(get_current_user)
                     time_str = (d + timedelta(hours=5, minutes=30)).strftime("%I:%M %p IST")
                 except Exception:
                     pass
-                entries_rows.append([e.get("date",""), time_str, p["name"], cp_cache.get(cp_id,""),
+                entries_rows.append([e.get("date",""), time_str, p_name, cp_cache.get(cp_id,""),
                                      e.get("naam",0) or "", e.get("jama",0) or "",
                                      e.get("narration","") or "", abs(bal), bal_type,
                                      "Yes" if e.get("is_locked") else "No"])
@@ -207,30 +231,52 @@ async def _get_google_creds(user: dict):
 async def _generate_csv_bytes(uid: str) -> bytes:
     """Generate complete CSV backup bytes for a user"""
     import csv as csv_mod
+    from collections import defaultdict
     buf = io.StringIO()
     writer = csv_mod.writer(buf)
     parties = await db.parties.find({"user_id": uid, "is_deleted": {"$ne": True}}).to_list(None)
+    party_ids = [str(p["_id"]) for p in parties]
+
+    # Batch-fetch all balances in one aggregation
+    bal_pipeline = [
+        {"$match": {"party_id": {"$in": party_ids}, "is_deleted": {"$ne": True}}},
+        {"$sort": {"date": 1, "created_at": 1}},
+        {"$group": {"_id": "$party_id", "balance": {"$last": "$balance"}}},
+    ]
+    bal_map = {r["_id"]: r["balance"] for r in await db.ledger_entries.aggregate(bal_pipeline).to_list(None)}
+
     writer.writerow(["=== PARTIES ==="])
     writer.writerow(["ID", "Name", "Mobile", "Address", "Balance"])
     for p in parties:
         pid = str(p["_id"])
-        bal = await get_party_balance(pid)
-        writer.writerow([pid, p["name"], p.get("mobile",""), p.get("address",""), bal])
+        writer.writerow([pid, p["name"], p.get("mobile",""), p.get("address",""), bal_map.get(pid, 0)])
+
+    # Batch-fetch all entries
+    all_entries_raw = await db.ledger_entries.find(
+        {"party_id": {"$in": party_ids}, "is_deleted": {"$ne": True}},
+        sort=[("date", 1)]
+    ).to_list(None)
+
+    # Batch-fetch all counterparty names
+    cp_ids = list({e.get("counterparty_id","") for e in all_entries_raw if e.get("counterparty_id")})
+    cp_docs = await db.parties.find({"_id": {"$in": [ObjectId(c) for c in cp_ids if c]}}).to_list(None)
+    cp_cache: dict = {str(c["_id"]): c["name"] for c in cp_docs}
+
+    entries_by_party: dict = defaultdict(list)
+    for e in all_entries_raw:
+        entries_by_party[e["party_id"]].append(e)
+    party_name_map = {str(p["_id"]): p["name"] for p in parties}
+
     writer.writerow([])
     writer.writerow(["=== LEDGER ENTRIES ==="])
     writer.writerow(["Date", "Party", "Counterparty", "Credit(Naam)", "Debit(Jama)", "Narration", "Balance", "Type", "Locked"])
-    cp_cache: dict = {}
-    for p in parties:
-        pid = str(p["_id"])
-        entries = await db.ledger_entries.find({"party_id": pid, "is_deleted": {"$ne": True}}, sort=[("date",1)]).to_list(None)
-        for e in entries:
+    for pid in party_ids:
+        p_name = party_name_map.get(pid, "")
+        for e in entries_by_party.get(pid, []):
             cp_id = e.get("counterparty_id","")
-            if cp_id and cp_id not in cp_cache:
-                cp_doc = await db.parties.find_one({"_id": ObjectId(cp_id)})
-                cp_cache[cp_id] = cp_doc["name"] if cp_doc else ""
             bal = e.get("balance", 0)
             bal_type = "Dena Hai" if bal > 0 else ("Lena Hai" if bal < 0 else "Settled")
-            writer.writerow([e.get("date",""), p["name"], cp_cache.get(cp_id,""),
+            writer.writerow([e.get("date",""), p_name, cp_cache.get(cp_id,""),
                              e.get("naam",0) or "", e.get("jama",0) or "",
                              e.get("narration","") or "", abs(bal), bal_type,
                              "Yes" if e.get("is_locked") else "No"])
