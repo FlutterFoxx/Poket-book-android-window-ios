@@ -6,18 +6,27 @@ import sys, os
 
 # ── Ensure critical packages are available (fast check, only installs if missing) ──
 def _check_and_install():
+    checks = [
+        ("bcrypt", "bcrypt"),
+        ("PyJWT", "jwt"),
+        ("resend", "resend"),
+        ("python-multipart", "multipart"),
+    ]
     missing = []
-    for pkg, mod in [("bcrypt", "bcrypt"), ("resend", "resend"), ("python-jose[cryptography]", "jose")]:
+    for pkg, mod in checks:
         try:
             __import__(mod)
         except ImportError:
             missing.append(pkg)
     if missing:
         import subprocess
-        subprocess.run(
+        logging.warning(f"Installing missing packages: {missing}")
+        result = subprocess.run(
             [sys.executable, "-m", "pip", "install"] + missing + ["-q", "--disable-pip-version-check"],
             timeout=120, capture_output=True, check=False
         )
+        if result.returncode != 0:
+            logging.error(f"pip install failed: {result.stderr.decode()}")
 
 _check_and_install()
 
@@ -45,6 +54,25 @@ app.add_middleware(
 async def health_check():
     """Kubernetes liveness/readiness probe — must return 200 immediately."""
     return {"status": "ok"}
+
+
+@app.get("/api/health/detail")
+async def health_detail():
+    """Detailed health check — helps diagnose production issues."""
+    import importlib
+    packages = {}
+    for mod in ["bcrypt", "jwt", "fastapi", "motor", "resend"]:
+        try:
+            m = importlib.import_module(mod)
+            packages[mod] = getattr(m, "__version__", "ok")
+        except ImportError:
+            packages[mod] = "MISSING"
+    try:
+        await db.command("ping")
+        db_ok = True
+    except Exception as e:
+        db_ok = str(e)
+    return {"status": "ok", "packages": packages, "db": db_ok}
 
 # ── Cron function — MUST be defined BEFORE startup_event references it ────────
 async def send_subscription_expiry_reminders():
