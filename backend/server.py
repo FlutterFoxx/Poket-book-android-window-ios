@@ -2,19 +2,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
-import subprocess, sys, os
+import sys, os
 
-# ── Auto-install missing packages on cold start ─────────────────────────────
-# Prevents ModuleNotFoundError (bcrypt, resend, etc.) after container restarts
-try:
-    _req = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-r", _req, "-q",
-         "--disable-pip-version-check", "--no-warn-script-location"],
-        timeout=120, capture_output=True, check=False
-    )
-except Exception as _pip_err:
-    logging.warning(f"Auto-install skipped: {_pip_err}")
+# ── Ensure critical packages are available (fast check, only installs if missing) ──
+def _check_and_install():
+    missing = []
+    for pkg, mod in [("bcrypt", "bcrypt"), ("resend", "resend"), ("python-jose[cryptography]", "jose")]:
+        try:
+            __import__(mod)
+        except ImportError:
+            missing.append(pkg)
+    if missing:
+        import subprocess
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install"] + missing + ["-q", "--disable-pip-version-check"],
+            timeout=120, capture_output=True, check=False
+        )
+
+_check_and_install()
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
