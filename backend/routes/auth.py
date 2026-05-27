@@ -322,7 +322,10 @@ async def _upsert_google_user(email: str, name: str, picture: str):
         await db.users.update_one({"_id": user["_id"]}, {
             "$set": {"name": name, "picture": picture, "google_auth": True, "email_verified": True}
         })
-        return str(user["_id"]), False, user.get("role", "user")@router.get("/auth/google/login")
+        return str(user["_id"]), False, user.get("role", "user")
+
+
+@router.get("/auth/google/login")
 async def google_login_url(request: Request):
     """Return the Google OAuth2 URL for the login flow."""
     import urllib.parse
