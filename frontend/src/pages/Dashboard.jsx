@@ -5,17 +5,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatBalance, toTitleCase } from "@/utils/helpers";
 import { downloadBlob } from "@/utils/saveFile";
 import { toast } from "sonner";
-import { Plus, ArrowRight, IndianRupee, Download, RefreshCw, CheckCircle, Cloud, Mail, AlertTriangle } from "lucide-react";
+import { Plus, ArrowRight, IndianRupee, Download, RefreshCw, CheckCircle, Cloud } from "lucide-react";
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [driveStatus, setDriveStatus] = useState(null); // null | {connected, last_backup}
+  const [driveStatus, setDriveStatus] = useState(null);
   const [connectingDrive, setConnectingDrive] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [sendingVerification, setSendingVerification] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -76,18 +75,6 @@ const Dashboard = () => {
     } catch { toast.error("Download failed"); }
   };
 
-  const handleSendVerification = async () => {
-    setSendingVerification(true);
-    try {
-      await api.post("/api/auth/resend-verification");
-      toast.success("Verification email sent! Check your inbox.", { duration: 4000 });
-    } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed to send. Please try again.");
-    } finally {
-      setSendingVerification(false);
-    }
-  };
-
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Subah" : hour < 17 ? "Dopahar" : "Shaam";
@@ -117,33 +104,6 @@ const Dashboard = () => {
       </div>
 
       <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
-
-        {/* ── Email Verification Banner (for unverified users) ── */}
-        {user && user.email_verified === false && (
-          <div style={{
-            background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: "10px",
-            padding: "12px 16px", display: "flex", alignItems: "center", gap: "12px",
-          }} data-testid="email-verify-banner">
-            <AlertTriangle size={20} color="#EA580C" style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "#9A3412", margin: "0 0 2px" }}>Email not verified</p>
-              <p style={{ fontSize: "12px", color: "#C2410C", margin: 0 }}>Verify your email to secure your account.</p>
-            </div>
-            <button
-              onClick={handleSendVerification}
-              disabled={sendingVerification}
-              data-testid="dashboard-verify-email-btn"
-              style={{
-                background: "#EA580C", color: "#fff", border: "none", borderRadius: "7px",
-                padding: "7px 14px", fontSize: "12px", fontWeight: 700,
-                cursor: sendingVerification ? "default" : "pointer",
-                opacity: sendingVerification ? 0.7 : 1, whiteSpace: "nowrap", flexShrink: 0,
-              }}
-            >
-              {sendingVerification ? "Sending..." : "Send Link"}
-            </button>
-          </div>
-        )}
 
         {/* ── Quick Actions ─────────────────────────────────────── */}
         <div style={{ display: "flex", gap: "10px" }}>

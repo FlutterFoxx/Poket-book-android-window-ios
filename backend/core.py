@@ -150,12 +150,8 @@ async def _decode_user(token: str) -> dict:
             raise HTTPException(status_code=401, detail="User not found")
         user["_id"] = str(user["_id"])
         user.pop("password_hash", None)
-        # Ensure email_verified is always present
-        # Google-authenticated users have pre-verified emails
-        if user.get("google_auth") or user.get("picture"):
-            user["email_verified"] = True
-        elif "email_verified" not in user:
-            user["email_verified"] = False
+        # Always treat email as verified (email verification removed)
+        user["email_verified"] = True
         # Add subscription info
         sub_type = user.get("subscription_type", "trial")
         sub_expires = user.get("subscription_expires_at")

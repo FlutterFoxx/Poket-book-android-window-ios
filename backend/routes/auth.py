@@ -1,6 +1,12 @@
 from dotenv import load_dotenv
 load_dotenv()
-import os, io, logging, secrets, string, base64, asyncio
+import os
+import io
+import logging
+import secrets
+import string
+import base64
+import asyncio
 import jwt
 from fastapi import APIRouter, Request, HTTPException, Depends, Response
 from typing import Optional, List
@@ -69,7 +75,7 @@ async def register(data: UserCreate, response: Response, request: Request):
         "name": name,
         "role": "user",
         "created_at": now,
-        "email_verified": False,
+        "email_verified": True,
         "subscription_type": "trial",
         "subscription_started_at": now,
         "subscription_expires_at": now + timedelta(days=7),
@@ -80,17 +86,8 @@ async def register(data: UserCreate, response: Response, request: Request):
     refresh_tok = create_refresh_token(user_id)
     set_auth_cookies(response, access_token, refresh_tok)
     await audit_log(db, "register_success", user_id, ip, email=email)
-
-    # Generate and store email verification token (24h expiry)
-    verify_token = secrets.token_urlsafe(32)
-    await db.email_verifications.insert_one({
-        "user_id": user_id, "email": email, "token": verify_token,
-        "expires_at": now + timedelta(hours=24), "used": False, "created_at": now,
-    })
-    # Fire-and-forget — don't block the registration response
-    _fire_email("send_verification_email", email, name, verify_token)
     return {"id": user_id, "email": email, "name": name, "role": "user",
-            "email_verified": False,
+            "email_verified": True,
             "access_token": access_token, "refresh_token": refresh_tok}
 
 @router.post("/auth/login")
@@ -127,7 +124,7 @@ async def login(data: UserLogin, response: Response, request: Request):
     set_auth_cookies(response, access_token, refresh_tok)
     await audit_log(db, "login_success", user_id, ip, email=email)
     return {"id": user_id, "email": email, "name": user.get("name"), "role": user.get("role", "user"),
-            "email_verified": user.get("email_verified", False),
+            "email_verified": True,
             "access_token": access_token, "refresh_token": refresh_tok}
 
 @router.post("/auth/logout")
@@ -325,10 +322,7 @@ async def _upsert_google_user(email: str, name: str, picture: str):
         await db.users.update_one({"_id": user["_id"]}, {
             "$set": {"name": name, "picture": picture, "google_auth": True, "email_verified": True}
         })
-        return str(user["_id"]), False, user.get("role", "user")
-
-
-@router.get("/auth/google/login")
+        return str(user["_id"]), False, user.get("role", "user")@router.get("/auth/google/login")
 async def google_login_url(request: Request):
     """Return the Google OAuth2 URL for the login flow."""
     import urllib.parse
@@ -359,7 +353,8 @@ async def google_login_url(request: Request):
 @router.get("/auth/google/callback")
 async def google_login_callback(request: Request, code: str = None, error: str = None):
     """Handle Google OAuth2 callback. Exchange code → tokens → JWT → redirect to frontend."""
-    import httpx, urllib.parse
+    import httpx
+    import urllib.parse
     from fastapi.responses import RedirectResponse
 
     # Derive app_url from the incoming request host so it works on any deployment
@@ -413,7 +408,6 @@ async def google_login_callback(request: Request, code: str = None, error: str =
         return RedirectResponse(f"{app_url}/login?error=no_email")
 
     user_id, is_new, existing_role = await _upsert_google_user(email, name, picture)
-    role = "user" if is_new else (existing_role or "user")
 
     access_token  = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
@@ -421,53 +415,3 @@ async def google_login_callback(request: Request, code: str = None, error: str =
     # Redirect to frontend AuthCallbackPage with tokens in URL hash
     params = urllib.parse.urlencode({"token": access_token, "refresh_token": refresh_token})
     return RedirectResponse(f"{app_url}/auth/callback#{params}")
-
-
-# ─── Email Verification ───────────────────────────────────────────────────────
-
-@router.get("/auth/verify-email")
-async def verify_email(token: str):
-    """Handle email verification link click. Returns JSON for frontend to process."""
-    if not token:
-        raise HTTPException(status_code=400, detail="Verification token is required")
-
-    rec = await db.email_verifications.find_one({"token": token, "used": False})
-    if not rec:
-        raise HTTPException(status_code=400, detail="Invalid or already used verification link")
-
-    expires = rec["expires_at"]
-    if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if datetime.now(timezone.utc) > expires:
-        raise HTTPException(status_code=400, detail="Verification link has expired. Please request a new one.")
-
-    # Mark email as verified
-    await db.users.update_one({"_id": ObjectId(rec["user_id"])}, {"$set": {"email_verified": True}})
-    await db.email_verifications.update_one({"token": token}, {"$set": {"used": True}})
-    return {"message": "Email verified successfully", "email": rec["email"]}
-
-
-@router.post("/auth/resend-verification")
-async def resend_verification(current_user: dict = Depends(get_current_user)):
-    """Resend verification email to the logged-in user."""
-    if current_user.get("email_verified"):
-        return {"message": "Email is already verified"}
-
-    email = current_user["email"]
-    if not email:
-        raise HTTPException(status_code=400, detail="No email address associated with this account")
-
-    # Invalidate old tokens for this user
-    await db.email_verifications.update_many(
-        {"user_id": current_user["_id"], "used": False},
-        {"$set": {"used": True}}
-    )
-
-    now = datetime.now(timezone.utc)
-    verify_token = secrets.token_urlsafe(32)
-    await db.email_verifications.insert_one({
-        "user_id": current_user["_id"], "email": email, "token": verify_token,
-        "expires_at": now + timedelta(hours=24), "used": False, "created_at": now,
-    })
-    _fire_email("send_verification_email", email, current_user.get("name", ""), verify_token)
-    return {"message": "Verification email sent"}
