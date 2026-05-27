@@ -362,7 +362,10 @@ async def google_login_callback(request: Request, code: str = None, error: str =
     import httpx, urllib.parse
     from fastapi.responses import RedirectResponse
 
-    app_url = os.environ.get("APP_URL", os.environ.get("FRONTEND_URL", "https://poketbook.in"))
+    # Derive app_url from the incoming request host so it works on any deployment
+    scheme   = request.headers.get("x-forwarded-proto", "https")
+    host     = request.headers.get("x-forwarded-host", "") or request.url.hostname
+    app_url  = f"{scheme}://{host}"
 
     if error or not code:
         return RedirectResponse(f"{app_url}/login?error=google_cancelled")
