@@ -55,10 +55,9 @@ export default function FastEntryPanel({
                       onChange={e => {
                         const val = e.target.value;
                         handleFastPartyChange(val);
-                        // Auto-advance to naam only when user actively picks a party
                         if (val) setTimeout(() => naamRef.current?.focus(), 50);
                       }}
-                      onKeyDown={e => handleFastKeyDown(e, naamRef)} tabIndex={0}
+                      tabIndex={0}
                       className="pk-input" style={{ appearance: "none", paddingRight: "28px", fontSize: "13px", fontWeight: 600 }}
                       data-testid="fast-entry-party-select">
                       <option value="">Select party</option>
@@ -137,7 +136,7 @@ export default function FastEntryPanel({
                 handleFastPartyChange(val);
                 if (val) setTimeout(() => naamRef.current?.focus(), 50);
               }}
-              onKeyDown={e => handleFastKeyDown(e, naamRef)} tabIndex={0}
+              tabIndex={0}
               className="appearance-none border-2 border-stone-600 px-2 py-1.5 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-44 pr-6"
               data-testid="fast-entry-party-select">
               <option value="">-- Party --</option>
