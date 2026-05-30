@@ -137,41 +137,41 @@ export default function LedgerTable({
                     <tr key={e.id} onClick={() => setFocusedRowIdx(i)} data-row-idx={i}
                       style={{ background: rowBg, outline: isFocused ? "2px solid #F59E0B" : "none", cursor: "pointer" }}
                       className="border-b border-amber-300" data-testid={`ledger-row-${e.id}`}>
-                      <td className="px-2 sm:px-3 py-1 sm:py-1.5 text-center border-r border-amber-200">
+                      <td className="px-2 sm:px-3 py-0.5 sm:py-1 text-center border-r border-amber-200">
                         {!e.is_locked
                           ? <input type="checkbox" checked={isSelected} onChange={() => toggleEntry(e.id)} className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 cursor-pointer" data-testid={`checkbox-${e.id}`} />
                           : <span className="text-stone-300 text-xs">—</span>}
                       </td>
-                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-center text-xs font-mono text-stone-500 border-r border-amber-200">{i + 1}</td>
-                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 border-r border-amber-200 whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-0.5 sm:py-1 text-center text-xs font-mono text-stone-500 border-r border-amber-200">{i + 1}</td>
+                      <td className="px-3 sm:px-4 py-0.5 sm:py-1 border-r border-amber-200 whitespace-nowrap">
                         <div className="text-base font-mono text-stone-800">{formatDate(e.date)}</div>
                         {e.created_at && <div className="text-xs text-stone-500 font-mono">{formatTime(e.created_at)}</div>}
                       </td>
-                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-base border-r border-amber-200 font-semibold">
+                      <td className="px-3 sm:px-4 py-0.5 sm:py-1 text-base border-r border-amber-200 font-semibold">
                         {e.counterparty_name
                           ? <span className="text-blue-800">{toTitleCase(e.counterparty_name)}</span>
                           : <span className="text-stone-400 text-sm italic">—</span>}
                       </td>
-                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right text-base font-mono font-bold text-red-800 border-r border-amber-200">
+                      <td className="px-3 sm:px-4 py-0.5 sm:py-1 text-right text-base font-mono font-bold text-red-800 border-r border-amber-200">
                         {e.naam > 0 ? e.naam.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}
                       </td>
-                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right text-base font-mono font-bold text-green-900 border-r border-amber-200">
+                      <td className="px-3 sm:px-4 py-0.5 sm:py-1 text-right text-base font-mono font-bold text-green-900 border-r border-amber-200">
                         {e.jama > 0 ? e.jama.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}
                       </td>
-                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-base text-stone-800 border-r border-amber-200 max-w-[160px] truncate hidden md:table-cell" style={{ fontWeight: 600 }}>
+                      <td className="px-3 sm:px-4 py-0.5 sm:py-1 text-base text-stone-800 border-r border-amber-200 max-w-[160px] truncate hidden md:table-cell" style={{ fontWeight: 600 }}>
                         {e.narration || "—"}
                       </td>
-                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-right border-r border-amber-200">
+                      <td className="px-3 sm:px-4 py-0.5 sm:py-1 text-right border-r border-amber-200">
                         <span className={`text-base font-mono font-bold whitespace-nowrap ${balColorClass(e.balance)}`}>
                           {Math.abs(e.balance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </span>
                       </td>
-                      <td className="px-2 sm:px-4 py-1 sm:py-1.5 text-center border-r border-amber-200 hidden sm:table-cell">
+                      <td className="px-2 sm:px-4 py-0.5 sm:py-1 text-center border-r border-amber-200 hidden sm:table-cell">
                         {e.is_locked
                           ? <span className="text-amber-800 font-black text-base" data-testid={`entry-locked-${e.id}`}>*</span>
                           : <span className="text-stone-400">—</span>}
                       </td>
-                      <td className="px-2 sm:px-4 py-1 sm:py-1.5 text-center">
+                      <td className="px-2 sm:px-4 py-0.5 sm:py-1 text-center">
                         {!e.is_locked ? (
                           <div className="flex items-center justify-center gap-0.5 sm:gap-1">
                             <button onClick={() => { setEditEntry(e); setEditForm({ date: e.date, naam: e.naam || "", jama: e.jama || "", narration: e.narration || "" }); }}
