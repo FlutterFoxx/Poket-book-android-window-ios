@@ -129,7 +129,7 @@ const BalanceSheet = () => {
       tabIndex: native ? undefined : 0,
       style: {
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "5px 14px",               // ← compact rows
+        padding: "5px 8px",                // ← reduced horizontal padding
         background: bg,
         borderBottom: border,
         cursor: native ? "pointer" : "default",
@@ -251,8 +251,8 @@ const BalanceSheet = () => {
               <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Payable (Blue)</div>
             </div>
             <div style={{ display: "flex", background: "#EFF6FF", borderBottom: "0.5px solid #BFDBFE", flexShrink: 0 }}>
-              <div style={{ flex: 1, padding: "6px 14px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
-              <div style={{ padding: "6px 14px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
+              <div style={{ flex: 1, padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
+              <div style={{ padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
               {dena.length === 0 ? (
@@ -262,11 +262,11 @@ const BalanceSheet = () => {
               ) : dena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, true)} data-testid={`dena-name-${p.id}`}>
                   <span style={{ fontSize: "14px", fontWeight: 600, color: "#1D4ED8" }}>{highlight(p.name, search)}</span>
-                  <span style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#1D4ED8" }} data-testid={`dena-amount-${p.id}`}>{fmt(p.amount)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#1D4ED8" }} data-testid={`dena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: "2px solid #BFDBFE", background: "#DBEAFE", padding: "9px 14px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ borderTop: "2px solid #BFDBFE", background: "#DBEAFE", padding: "9px 8px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "#1E40AF" }}>Total Dena Hai</span>
               <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#1D4ED8" }} data-testid="dena-total">₹{fmt(data.total_payable)}</span>
             </div>
@@ -279,8 +279,8 @@ const BalanceSheet = () => {
               <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Receivable (Red)</div>
             </div>
             <div style={{ display: "flex", background: "#FEF2F2", borderBottom: "0.5px solid #FECACA", flexShrink: 0 }}>
-              <div style={{ flex: 1, padding: "6px 14px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
-              <div style={{ padding: "6px 14px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
+              <div style={{ flex: 1, padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
+              <div style={{ padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
               {lena.length === 0 ? (
@@ -290,11 +290,11 @@ const BalanceSheet = () => {
               ) : lena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, false)} data-testid={`lena-name-${p.id}`}>
                   <span style={{ fontSize: "14px", fontWeight: 600, color: "#B91C1C" }}>{highlight(p.name, search)}</span>
-                  <span style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B91C1C" }} data-testid={`lena-amount-${p.id}`}>{fmt(p.amount)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#B91C1C" }} data-testid={`lena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: "2px solid #FECACA", background: "#FEE2E2", padding: "9px 14px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ borderTop: "2px solid #FECACA", background: "#FEE2E2", padding: "9px 8px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "#991B1B" }}>Total Lena Hai</span>
               <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B91C1C" }} data-testid="lena-total">₹{fmt(data.total_receivable)}</span>
             </div>
