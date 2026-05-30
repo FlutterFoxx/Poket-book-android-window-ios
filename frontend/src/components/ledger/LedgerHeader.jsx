@@ -44,7 +44,17 @@ export default function LedgerHeader({
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="text-sm sm:text-base font-bold text-purple-700 hidden md:inline">Party Name</span>
             <div className="relative">
-              <select value={selectedId} onChange={e => handlePartyChange(e.target.value)}
+              <select value={selectedId}
+                onChange={e => handlePartyChange(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && e.target.value) {
+                    e.preventDefault();
+                    // Move focus to fast-entry naam input after party is loaded
+                    setTimeout(() => {
+                      document.querySelector('[data-testid="fast-entry-naam-input"]')?.focus();
+                    }, 100);
+                  }
+                }}
                 className="appearance-none border-2 border-stone-400 bg-white px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base font-semibold focus:outline-none focus:ring-2 focus:ring-stone-700 pr-7 max-w-[150px] sm:max-w-none"
                 data-testid="party-selector">
                 <option value="">-- Party --</option>
