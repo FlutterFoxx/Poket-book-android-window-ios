@@ -129,7 +129,7 @@ const BalanceSheet = () => {
       tabIndex: native ? undefined : 0,
       style: {
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "7px 14px",               // ← reduced from 11px 16px
+        padding: "5px 14px",               // ← compact rows
         background: bg,
         borderBottom: border,
         cursor: native ? "pointer" : "default",
