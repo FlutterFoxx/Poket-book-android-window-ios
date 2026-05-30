@@ -143,7 +143,7 @@ export default function LedgerTable({
                           : <span className="text-stone-300 text-xs">—</span>}
                       </td>
                       <td className="px-3 sm:px-4 py-1 sm:py-1.5 text-center text-xs font-mono text-stone-500 border-r border-amber-200">{i + 1}</td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 border-r border-amber-200 whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-1 sm:py-1.5 border-r border-amber-200 whitespace-nowrap">
                         <div className="text-base font-mono text-stone-800">{formatDate(e.date)}</div>
                         {e.created_at && <div className="text-xs text-stone-500 font-mono">{formatTime(e.created_at)}</div>}
                       </td>
@@ -166,12 +166,12 @@ export default function LedgerTable({
                           {Math.abs(e.balance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </span>
                       </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 text-center border-r border-amber-200 hidden sm:table-cell">
+                      <td className="px-2 sm:px-4 py-1 sm:py-1.5 text-center border-r border-amber-200 hidden sm:table-cell">
                         {e.is_locked
                           ? <span className="text-amber-800 font-black text-base" data-testid={`entry-locked-${e.id}`}>*</span>
                           : <span className="text-stone-400">—</span>}
                       </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 text-center">
+                      <td className="px-2 sm:px-4 py-1 sm:py-1.5 text-center">
                         {!e.is_locked ? (
                           <div className="flex items-center justify-center gap-0.5 sm:gap-1">
                             <button onClick={() => { setEditEntry(e); setEditForm({ date: e.date, naam: e.naam || "", jama: e.jama || "", narration: e.narration || "" }); }}

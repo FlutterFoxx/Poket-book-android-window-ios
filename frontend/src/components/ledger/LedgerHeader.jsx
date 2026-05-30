@@ -48,7 +48,7 @@ export default function LedgerHeader({
         </div>
 
         {/* Control bar */}
-        <div className="flex-shrink-0 bg-stone-100 border-b-2 border-stone-400 px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-4 flex-wrap">
+        <div className="flex-shrink-0 bg-stone-100 border-b-2 border-stone-400 px-2 sm:px-3 py-1 flex items-center gap-1.5 sm:gap-3 flex-wrap">
           {/* Full/Only toggle */}
           <div className="flex items-center bg-stone-200 rounded-full p-0.5 gap-0">
             <button onClick={() => setShowFullAccount(true)}
@@ -115,16 +115,7 @@ export default function LedgerHeader({
         </div>
       </div>
 
-      {/* ── Keyboard shortcuts legend (desktop) ── */}
-      <div className="hidden md:flex flex-shrink-0 items-center gap-3 px-4 py-1 text-xs text-stone-500 border-b border-stone-200" style={{ background: "#FAFAF9" }}>
-        <span className="font-bold text-stone-600 mr-1">Shortcuts:</span>
-        {[["F1","New Party"],["F4","Edit Entry"],["F5","Tally Lock"],["ESC","Close Modal"],["↑↓","Navigate Rows"]].map(([k, v]) => (
-          <span key={k} className="flex items-center gap-1">
-            <kbd className="bg-stone-200 text-stone-700 font-mono font-bold px-1.5 py-0.5 rounded text-xs border border-stone-300">{k}</kbd>
-            <span>{v}</span>
-          </span>
-        ))}
-      </div>
+      {/* ── Keyboard shortcuts legend — REMOVED for compact UI ── */}
 
       {/* ── Full account info band ── */}
       {showFullAccount && partyInfo && selectedId && (
