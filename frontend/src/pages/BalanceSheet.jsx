@@ -298,7 +298,7 @@ const BalanceSheet = () => {
               ) : dena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, true, "dena-list")} data-testid={`dena-name-${p.id}`}>
                   <span style={{ fontSize: "14px", fontWeight: 800, color: "#1D4ED8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{highlight(p.name, searchDena)}</span>
-                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#1D4ED8", flexShrink: 0 }} data-testid={`dena-amount-${p.id}`}>{fmt(p.amount)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 900, color: "#1D4ED8", flexShrink: 0 }} data-testid={`dena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
@@ -353,7 +353,7 @@ const BalanceSheet = () => {
               ) : lena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, false, "lena-list")} data-testid={`lena-name-${p.id}`}>
                   <span style={{ fontSize: "14px", fontWeight: 800, color: "#B91C1C", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{highlight(p.name, searchLena)}</span>
-                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#B91C1C", flexShrink: 0 }} data-testid={`lena-amount-${p.id}`}>{fmt(p.amount)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 900, color: "#B91C1C", flexShrink: 0 }} data-testid={`lena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
