@@ -128,7 +128,7 @@ const BalanceSheet = () => {
     return {
       tabIndex: native ? undefined : 0,
       style: {
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        display: "flex", alignItems: "center", gap: "12px",
         padding: "5px 4px",                // ← tightest horizontal padding
         background: bg,
         borderBottom: border,
@@ -253,8 +253,8 @@ const BalanceSheet = () => {
                 </div>
               ) : dena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, true)} data-testid={`dena-name-${p.id}`}>
-                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#1D4ED8" }}>{highlight(p.name, search)}</span>
-                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#1D4ED8" }} data-testid={`dena-amount-${p.id}`}>{fmt(p.amount)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#1D4ED8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{highlight(p.name, search)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#1D4ED8", flexShrink: 0 }} data-testid={`dena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
@@ -281,8 +281,8 @@ const BalanceSheet = () => {
                 </div>
               ) : lena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, false)} data-testid={`lena-name-${p.id}`}>
-                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#B91C1C" }}>{highlight(p.name, search)}</span>
-                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#B91C1C" }} data-testid={`lena-amount-${p.id}`}>{fmt(p.amount)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#B91C1C", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{highlight(p.name, search)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#B91C1C", flexShrink: 0 }} data-testid={`lena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
