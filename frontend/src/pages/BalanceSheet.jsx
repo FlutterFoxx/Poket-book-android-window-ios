@@ -258,11 +258,11 @@ const BalanceSheet = () => {
           <div data-col="dena" style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: "2px solid var(--border)", minWidth: 0, overflow: "hidden" }}>
 
             {/* Section header — search lives inside here */}
-            <div style={{ background: "#1E40AF", color: "#fff", padding: "10px 12px", flexShrink: 0 }}>
+            <div style={{ background: "#1E40AF", color: "#fff", padding: "6px 10px", flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.5px" }}>DENA HAI / देना है</div>
-                  <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Payable (Blue)</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.5px" }}>DENA HAI / देना है</div>
+                  <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.7)", marginTop: "0px" }}>Payable (Blue)</div>
                 </div>
                 {searchDena && (
                   <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", borderRadius: "4px", padding: "2px 7px", color: "rgba(255,255,255,0.9)" }}>
@@ -313,11 +313,11 @@ const BalanceSheet = () => {
           <div data-col="lena" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
 
             {/* Section header — search lives inside here */}
-            <div style={{ background: "#991B1B", color: "#fff", padding: "10px 12px", flexShrink: 0 }}>
+            <div style={{ background: "#991B1B", color: "#fff", padding: "6px 10px", flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.5px" }}>LENA HAI / लेना है</div>
-                  <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Receivable (Red)</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.5px" }}>LENA HAI / लेना है</div>
+                  <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.7)", marginTop: "0px" }}>Receivable (Red)</div>
                 </div>
                 {searchLena && (
                   <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", borderRadius: "4px", padding: "2px 7px", color: "rgba(255,255,255,0.9)" }}>
