@@ -215,24 +215,24 @@ const BalanceSheet = () => {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg-page)", fontFamily: "var(--font-body)" }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{ background: "var(--primary-gradient)", color: "#fff", padding: "12px 16px", flexShrink: 0 }}>
+      <div style={{ background: "var(--primary-gradient)", color: "#fff", padding: "7px 12px", flexShrink: 0 }}>
         <div className="hidden md:flex" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
-            <h1 style={{ fontSize: "18px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
+            <h1 style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
               {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex" }} data-testid="bs-refresh-btn"><RefreshCw size={15} /></button>
-            <button onClick={handlePrint} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-export-pdf-btn"><Printer size={14} /> Print / PDF</button>
-            <button onClick={handleExcelDownload} style={{ background: "#16A34A", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-export-excel-btn"><FileSpreadsheet size={14} /> Excel</button>
-            <button onClick={handleScreenshot} style={{ background: "#0891B2", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-screenshot-btn"><Camera size={14} /> Screenshot</button>
+            <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "6px", padding: "5px", cursor: "pointer", color: "#fff", display: "flex" }} data-testid="bs-refresh-btn"><RefreshCw size={12} /></button>
+            <button onClick={handlePrint} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "6px", padding: "4px 9px", cursor: "pointer", color: "#fff", fontSize: "11px", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }} data-testid="bs-export-pdf-btn"><Printer size={11} /> Print / PDF</button>
+            <button onClick={handleExcelDownload} style={{ background: "#16A34A", border: "none", borderRadius: "6px", padding: "4px 9px", cursor: "pointer", color: "#fff", fontSize: "11px", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }} data-testid="bs-export-excel-btn"><FileSpreadsheet size={11} /> Excel</button>
+            <button onClick={handleScreenshot} style={{ background: "#0891B2", border: "none", borderRadius: "6px", padding: "4px 9px", cursor: "pointer", color: "#fff", fontSize: "11px", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }} data-testid="bs-screenshot-btn"><Camera size={11} /> Screenshot</button>
           </div>
         </div>
         <div className="flex md:hidden" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
-            <h1 style={{ fontSize: "18px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
+            <h1 style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
               {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
