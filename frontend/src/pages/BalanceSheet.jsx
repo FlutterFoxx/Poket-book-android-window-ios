@@ -6,49 +6,70 @@ import { androidExport, androidExportBlob } from "@/utils/androidExport";
 import { RefreshCw, Printer, FileSpreadsheet, Camera, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
-// Web / PWA desktop — enhanced interactions
-// Native Android (Capacitor) — keep original single-click, no search boxes
 const isNativeAndroid = () =>
   !!(window.Capacitor?.isNativePlatform?.() && /Android/i.test(navigator.userAgent || ""));
 
-// ── Reusable column search input ──────────────────────────────────────────────
-const ColSearch = ({ value, onChange, color, rowListId }) => (
-  <div style={{
-    display: "flex", alignItems: "center", gap: "6px",
-    background: "#fff", borderBottom: `2px solid ${color}`,
-    padding: "5px 6px", flexShrink: 0,
-  }}>
-    <Search size={13} style={{ color, flexShrink: 0, opacity: 0.6 }} />
-    <input
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder="Search parties..."
-      aria-label="Search parties"
-      aria-controls={rowListId}
-      onKeyDown={e => {
-        if (e.key === "Escape") { onChange(""); }
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          // move focus to first row in the list
-          const list = document.getElementById(rowListId);
-          const first = list?.querySelector("[data-row]");
-          if (first) first.focus();
-        }
-      }}
-      style={{
-        flex: 1, border: "none", outline: "none",
-        fontSize: "13px", fontWeight: 500, color: "#1F2937",
-        background: "transparent",
-      }}
-    />
-    {value && (
-      <button onClick={() => onChange("")} tabIndex={-1}
-        style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "0 2px", display: "flex" }}>
-        <X size={12} />
-      </button>
-    )}
-  </div>
-);
+// ── Search bar inside the coloured section header ────────────────────────────
+const ColSearch = ({ value, onChange, listId, ownRef, siblingRef, isLeft }) => {
+  useEffect(() => { if (ownRef) ownRef.current = inputRef.current; }); // eslint-disable-line
+  const inputRef = useRef(null);
+  // expose to parent via ownRef
+  useEffect(() => { if (ownRef) ownRef.current = inputRef.current; }, []); // eslint-disable-line
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape")    { onChange(""); return; }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      document.getElementById(listId)?.querySelector("[data-row]")?.focus();
+      return;
+    }
+    // Left column → Right arrow jumps to Lena search
+    // Right column → Left arrow jumps to Dena search
+    if ((isLeft && e.key === "ArrowRight") || (!isLeft && e.key === "ArrowLeft")) {
+      e.preventDefault();
+      siblingRef?.current?.focus();
+    }
+  };
+
+  return (
+    <div style={{ position: "relative", marginTop: "8px" }}>
+      <Search size={13} style={{
+        position: "absolute", left: "9px", top: "50%",
+        transform: "translateY(-50%)",
+        color: "rgba(255,255,255,0.55)", pointerEvents: "none",
+      }} />
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder="Search parties..."
+        aria-label="Search parties"
+        aria-controls={listId}
+        style={{
+          width: "100%", boxSizing: "border-box",
+          background: "rgba(255,255,255,0.15)",
+          border: "1px solid rgba(255,255,255,0.3)",
+          borderRadius: "6px",
+          padding: "6px 28px 6px 28px",
+          color: "#fff",
+          fontSize: "12px", fontWeight: 500,
+          outline: "none", caretColor: "#fff",
+        }}
+      />
+      {value && (
+        <button onClick={() => { onChange(""); inputRef.current?.focus(); }}
+          style={{
+            position: "absolute", right: "7px", top: "50%", transform: "translateY(-50%)",
+            background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "4px",
+            cursor: "pointer", color: "#fff", padding: "1px 4px", display: "flex",
+          }}>
+          <X size={11} />
+        </button>
+      )}
+    </div>
+  );
+};
 
 const BalanceSheet = () => {
   const navigate = useNavigate();
@@ -58,7 +79,10 @@ const BalanceSheet = () => {
   const [searchLena, setSearchLena] = useState("");
   const native = isNativeAndroid();
 
-  // ── Data fetch ────────────────────────────────────────────────────────────
+  // refs so each column's search can focus the sibling
+  const denaSearchRef = useRef(null);
+  const lenaSearchRef = useRef(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -73,7 +97,6 @@ const BalanceSheet = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, []);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   const fmt = (n) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Math.abs(n || 0));
 
   const handlePrint = async () => {
@@ -81,12 +104,10 @@ const BalanceSheet = () => {
     const date = new Date().toISOString().split("T")[0];
     await androidExport("/api/export/balance-sheet/pdf", `PoketBook_BalanceSheet_${date}.pdf`, "save");
   };
-
   const handleExcelDownload = async () => {
     const date = new Date().toISOString().split("T")[0];
     await androidExport("/api/export/balance-sheet/excel", `PoketBook_BalanceSheet_${date}.xlsx`, "save");
   };
-
   const handleScreenshot = async () => {
     const toastId = toast.loading("Capturing screenshot...");
     try {
@@ -113,13 +134,12 @@ const BalanceSheet = () => {
     }
   };
 
-  // ── Filter with starts-with priority ─────────────────────────────────────
   const filterParties = (list, q) => {
     if (!q || native) return list;
     const lq = q.toLowerCase();
-    const startsWith = list.filter(p => p.name.toLowerCase().startsWith(lq));
-    const contains   = list.filter(p => !p.name.toLowerCase().startsWith(lq) && p.name.toLowerCase().includes(lq));
-    return [...startsWith, ...contains];
+    const sw = list.filter(p => p.name.toLowerCase().startsWith(lq));
+    const ct = list.filter(p => !p.name.toLowerCase().startsWith(lq) && p.name.toLowerCase().includes(lq));
+    return [...sw, ...ct];
   };
 
   const allDena = data?.dena_hai || [];
@@ -127,7 +147,6 @@ const BalanceSheet = () => {
   const dena = filterParties(allDena, searchDena);
   const lena = filterParties(allLena, searchLena);
 
-  // ── Highlight matching text ───────────────────────────────────────────────
   const highlight = (name, q) => {
     if (!q) return toTitleCase(name);
     const tc = toTitleCase(name);
@@ -144,30 +163,30 @@ const BalanceSheet = () => {
     );
   };
 
-  // ── Row keyboard navigation helper ───────────────────────────────────────
-  const handleRowKeyDown = (e, partyId, listId) => {
+  // row keyboard: ↑↓ within list, Left/Right crosses to sibling search
+  const handleRowKey = (e, partyId, listId, isLeft) => {
     if (e.key === "Enter") { navigate(`/ledger/${partyId}`); return; }
     const list = document.getElementById(listId);
-    if (!list) return;
-    const rows = Array.from(list.querySelectorAll("[data-row]"));
+    const rows = list ? Array.from(list.querySelectorAll("[data-row]")) : [];
     const idx  = rows.indexOf(e.currentTarget);
     if (e.key === "ArrowDown") { e.preventDefault(); rows[idx + 1]?.focus(); }
     if (e.key === "ArrowUp")   {
       e.preventDefault();
-      if (idx === 0) {
-        // jump back to the search input
-        list.closest("[data-col]")?.querySelector("input")?.focus();
-      } else {
-        rows[idx - 1]?.focus();
-      }
+      if (idx === 0) { (isLeft ? denaSearchRef : lenaSearchRef).current?.focus(); }
+      else           { rows[idx - 1]?.focus(); }
+    }
+    // cross to sibling column search
+    if ((isLeft && e.key === "ArrowRight") || (!isLeft && e.key === "ArrowLeft")) {
+      e.preventDefault();
+      (isLeft ? lenaSearchRef : denaSearchRef).current?.focus();
     }
   };
 
-  // ── Party row props ───────────────────────────────────────────────────────
   const rowProps = (partyId, idx, isBlue, listId) => {
     const bg      = isBlue ? (idx % 2 === 0 ? "#fff" : "#F8FAFF") : (idx % 2 === 0 ? "#fff" : "#FFF8F8");
     const hoverBg = isBlue ? "#EFF6FF" : "#FEF2F2";
     const border  = isBlue ? "0.5px solid #DBEAFE" : "0.5px solid #FECACA";
+    const isLeft  = isBlue;
     return {
       "data-row": true,
       tabIndex: native ? undefined : 0,
@@ -182,7 +201,7 @@ const BalanceSheet = () => {
         ? { onClick: () => navigate(`/ledger/${partyId}`) }
         : {
             onDoubleClick: () => navigate(`/ledger/${partyId}`),
-            onKeyDown: (e) => handleRowKeyDown(e, partyId, listId),
+            onKeyDown: (e) => handleRowKey(e, partyId, listId, isLeft),
           }
       ),
       onMouseEnter: (e) => { e.currentTarget.style.background = hoverBg; },
@@ -197,8 +216,6 @@ const BalanceSheet = () => {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ background: "var(--primary-gradient)", color: "#fff", padding: "12px 16px", flexShrink: 0 }}>
-
-        {/* Desktop */}
         <div className="hidden md:flex" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
             <h1 style={{ fontSize: "18px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
@@ -213,8 +230,6 @@ const BalanceSheet = () => {
             <button onClick={handleScreenshot} style={{ background: "#0891B2", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-screenshot-btn"><Camera size={14} /> Screenshot</button>
           </div>
         </div>
-
-        {/* Mobile */}
         <div className="flex md:hidden" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
             <h1 style={{ fontSize: "18px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
@@ -225,46 +240,56 @@ const BalanceSheet = () => {
           <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex", flexShrink: 0 }} data-testid="bs-refresh-btn"><RefreshCw size={15} /></button>
           <button onClick={handleScreenshot} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex", flexShrink: 0 }} data-testid="bs-screenshot-btn-mobile"><Camera size={15} /></button>
         </div>
-
         <div className="flex md:hidden" style={{ gap: "8px", marginTop: "10px" }}>
           <button onClick={handlePrint} style={{ flex: 1, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }} data-testid="bs-export-pdf-btn-m"><Printer size={16} /> Print / PDF</button>
           <button onClick={handleExcelDownload} style={{ flex: 1, background: "#16A34A", border: "none", borderRadius: "8px", padding: "10px 8px", cursor: "pointer", color: "#fff", fontSize: "14px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }} data-testid="bs-export-excel-btn-m"><FileSpreadsheet size={16} /> Excel</button>
         </div>
       </div>
 
-      {/* ── Two independently scrollable columns ───────────────────────────── */}
+      {/* ── Columns ──────────────────────────────────────────────────────────── */}
       {loading ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--primary)", borderTopColor: "transparent" }} />
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", gap: 0, overflow: "hidden", minHeight: 0 }}>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
 
-          {/* ── LEFT: DENA HAI (Blue) ─────────────────────────────────────────── */}
+          {/* ── DENA HAI (Blue) ─────────────────────────────────────────────── */}
           <div data-col="dena" style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: "2px solid var(--border)", minWidth: 0, overflow: "hidden" }}>
-            {/* Section header */}
-            <div style={{ background: "#1E40AF", color: "#fff", padding: "10px 16px", flexShrink: 0 }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.5px" }}>DENA HAI / देना है</div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Payable (Blue)</div>
+
+            {/* Section header — search lives inside here */}
+            <div style={{ background: "#1E40AF", color: "#fff", padding: "10px 12px", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.5px" }}>DENA HAI / देना है</div>
+                  <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Payable (Blue)</div>
+                </div>
+                {searchDena && (
+                  <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", borderRadius: "4px", padding: "2px 7px", color: "rgba(255,255,255,0.9)" }}>
+                    {dena.length} result{dena.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              {/* Search input embedded in header */}
+              {!native && (
+                <ColSearch
+                  value={searchDena}
+                  onChange={setSearchDena}
+                  listId="dena-list"
+                  ownRef={denaSearchRef}
+                  siblingRef={lenaSearchRef}
+                  isLeft={true}
+                />
+              )}
             </div>
 
-            {/* Search box — web/desktop only */}
-            {!native && (
-              <ColSearch
-                value={searchDena}
-                onChange={setSearchDena}
-                color="#1E40AF"
-                rowListId="dena-list"
-              />
-            )}
-
-            {/* Column sub-header */}
+            {/* Sub-header */}
             <div style={{ display: "flex", background: "#EFF6FF", borderBottom: "0.5px solid #BFDBFE", flexShrink: 0 }}>
               <div style={{ flex: 1, padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
               <div style={{ padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
             </div>
 
-            {/* Scrollable list */}
+            {/* List */}
             <div id="dena-list" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
               {dena.length === 0 ? (
                 <div style={{ padding: "24px 8px", textAlign: "center", color: "var(--text-tertiary)", fontSize: "14px" }}>
@@ -278,38 +303,48 @@ const BalanceSheet = () => {
               ))}
             </div>
 
-            {/* Footer */}
             <div style={{ borderTop: "2px solid #BFDBFE", background: "#DBEAFE", padding: "9px 4px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "#1E40AF" }}>Total Dena Hai</span>
               <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#1D4ED8" }} data-testid="dena-total">₹{fmt(data.total_payable)}</span>
             </div>
           </div>
 
-          {/* ── RIGHT: LENA HAI (Red) ─────────────────────────────────────────── */}
+          {/* ── LENA HAI (Red) ──────────────────────────────────────────────── */}
           <div data-col="lena" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
-            {/* Section header */}
-            <div style={{ background: "#991B1B", color: "#fff", padding: "10px 16px", flexShrink: 0 }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.5px" }}>LENA HAI / लेना है</div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Receivable (Red)</div>
+
+            {/* Section header — search lives inside here */}
+            <div style={{ background: "#991B1B", color: "#fff", padding: "10px 12px", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.5px" }}>LENA HAI / लेना है</div>
+                  <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Receivable (Red)</div>
+                </div>
+                {searchLena && (
+                  <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", borderRadius: "4px", padding: "2px 7px", color: "rgba(255,255,255,0.9)" }}>
+                    {lena.length} result{lena.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              {/* Search input embedded in header */}
+              {!native && (
+                <ColSearch
+                  value={searchLena}
+                  onChange={setSearchLena}
+                  listId="lena-list"
+                  ownRef={lenaSearchRef}
+                  siblingRef={denaSearchRef}
+                  isLeft={false}
+                />
+              )}
             </div>
 
-            {/* Search box — web/desktop only */}
-            {!native && (
-              <ColSearch
-                value={searchLena}
-                onChange={setSearchLena}
-                color="#991B1B"
-                rowListId="lena-list"
-              />
-            )}
-
-            {/* Column sub-header */}
+            {/* Sub-header */}
             <div style={{ display: "flex", background: "#FEF2F2", borderBottom: "0.5px solid #FECACA", flexShrink: 0 }}>
               <div style={{ flex: 1, padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
               <div style={{ padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
             </div>
 
-            {/* Scrollable list */}
+            {/* List */}
             <div id="lena-list" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
               {lena.length === 0 ? (
                 <div style={{ padding: "24px 8px", textAlign: "center", color: "var(--text-tertiary)", fontSize: "14px" }}>
@@ -323,7 +358,6 @@ const BalanceSheet = () => {
               ))}
             </div>
 
-            {/* Footer */}
             <div style={{ borderTop: "2px solid #FECACA", background: "#FEE2E2", padding: "9px 4px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "#991B1B" }}>Total Lena Hai</span>
               <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B91C1C" }} data-testid="lena-total">₹{fmt(data.total_receivable)}</span>
