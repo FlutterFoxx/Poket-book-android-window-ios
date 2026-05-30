@@ -218,7 +218,7 @@ const BalanceSheet = () => {
       <div style={{ background: "var(--primary-gradient)", color: "#fff", padding: "7px 12px", flexShrink: 0 }}>
         <div className="hidden md:flex" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
-            <h1 style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
+            <h1 style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0, color: "#ffffff" }}>Balance Sheet</h1>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
               {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
@@ -232,7 +232,7 @@ const BalanceSheet = () => {
         </div>
         <div className="flex md:hidden" style={{ alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
           <div>
-            <h1 style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0 }}>Balance Sheet</h1>
+            <h1 style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-heading)", margin: 0, color: "#ffffff" }}>Balance Sheet</h1>
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", margin: "2px 0 0" }}>
               {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
