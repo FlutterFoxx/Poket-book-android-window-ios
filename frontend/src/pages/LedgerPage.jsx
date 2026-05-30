@@ -246,7 +246,12 @@ const LedgerPage = () => {
       setFastEntry({ ...EMPTY_FAST, partyId: "", date: today() });
       fetchEntries(selectedId);
       fetchParties();
-      setTimeout(() => partySelectRef.current?.focus(), 100);
+      // Return focus to party select (not naam) — use longer timeout to let re-renders settle
+      setTimeout(() => {
+        const sel = partySelectRef.current
+          || document.querySelector('[data-testid="fast-entry-party-select"]');
+        if (sel) { sel.focus(); }
+      }, 250);
     } catch (err) { toast.error(err.response?.data?.detail || "Entry save nahi hui", { duration: 1500 }); }
     setSaving(false);
     savingLockRef.current = false;

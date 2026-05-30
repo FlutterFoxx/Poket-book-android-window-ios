@@ -51,7 +51,13 @@ export default function FastEntryPanel({
                 <div>
                   <label className="pk-label">Party Name</label>
                   <div style={{ position: "relative" }}>
-                    <select ref={partySelectRef} value={fastEntry.partyId} onChange={e => { handleFastPartyChange(e.target.value); if (e.target.value) setTimeout(() => naamRef.current?.focus(), 50); }}
+                    <select ref={partySelectRef} value={fastEntry.partyId}
+                      onChange={e => {
+                        const val = e.target.value;
+                        handleFastPartyChange(val);
+                        // Auto-advance to naam only when user actively picks a party
+                        if (val) setTimeout(() => naamRef.current?.focus(), 50);
+                      }}
                       onKeyDown={e => handleFastKeyDown(e, naamRef)} tabIndex={0}
                       className="pk-input" style={{ appearance: "none", paddingRight: "28px", fontSize: "13px", fontWeight: 600 }}
                       data-testid="fast-entry-party-select">
@@ -125,7 +131,12 @@ export default function FastEntryPanel({
         {/* Party */}
         <div className="flex flex-col gap-1">
           <div className="relative">
-            <select ref={partySelectRef} value={fastEntry.partyId} onChange={e => { handleFastPartyChange(e.target.value); if (e.target.value) setTimeout(() => naamRef.current?.focus(), 50); }}
+            <select ref={partySelectRef} value={fastEntry.partyId}
+              onChange={e => {
+                const val = e.target.value;
+                handleFastPartyChange(val);
+                if (val) setTimeout(() => naamRef.current?.focus(), 50);
+              }}
               onKeyDown={e => handleFastKeyDown(e, naamRef)} tabIndex={0}
               className="appearance-none border-2 border-stone-600 px-2 py-1.5 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-stone-900 w-44 pr-6"
               data-testid="fast-entry-party-select">
