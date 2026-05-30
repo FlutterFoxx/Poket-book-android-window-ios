@@ -129,7 +129,7 @@ const BalanceSheet = () => {
       tabIndex: native ? undefined : 0,
       style: {
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "5px 8px",                // ← reduced horizontal padding
+        padding: "5px 4px",                // ← tightest horizontal padding
         background: bg,
         borderBottom: border,
         cursor: native ? "pointer" : "default",
@@ -183,6 +183,27 @@ const BalanceSheet = () => {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <button onClick={fetchData} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", padding: "8px", cursor: "pointer", color: "#fff", display: "flex" }} data-testid="bs-refresh-btn"><RefreshCw size={15} /></button>
+
+            {/* Search indicator — same size as Print/PDF button */}
+            {!native && search && (
+              <div style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "7px 11px", display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, color: "#fff" }}>
+                <Search size={13} style={{ opacity: 0.7 }} />
+                <span style={{ fontFamily: "var(--font-mono)", background: "#FDE68A", color: "#1E293B", borderRadius: "3px", padding: "1px 5px" }}>{search}</span>
+                <span style={{ opacity: 0.6, fontSize: "12px" }}>{dena.length + lena.length}</span>
+                <button onClick={() => { setSearch(""); searchRef.current = ""; }}
+                  style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "4px", padding: "2px 5px", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", fontSize: "11px" }}>
+                  <X size={11} />
+                </button>
+              </div>
+            )}
+            {/* Hint — same size as Print/PDF button, only when not searching */}
+            {!native && !search && (
+              <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", padding: "7px 11px", fontSize: "12px", color: "rgba(255,255,255,0.55)", display: "flex", alignItems: "center", gap: "6px" }}>
+                <Search size={12} style={{ opacity: 0.5 }} />
+                <span>Type to search · Double-click to open</span>
+              </div>
+            )}
+
             <button onClick={handlePrint} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-export-pdf-btn"><Printer size={14} /> Print / PDF</button>
             <button onClick={handleExcelDownload} style={{ background: "#16A34A", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-export-excel-btn"><FileSpreadsheet size={14} /> Excel</button>
             <button onClick={handleScreenshot} style={{ background: "#0891B2", border: "none", borderRadius: "8px", padding: "7px 13px", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }} data-testid="bs-screenshot-btn"><Camera size={14} /> Screenshot</button>
@@ -207,35 +228,6 @@ const BalanceSheet = () => {
         </div>
       </div>
 
-      {/* ── Keyboard search bar (web/desktop only, visible when typing) ───── */}
-      {!native && search && (
-        <div style={{
-          background: "#1E3A5F", color: "#fff", padding: "6px 16px",
-          display: "flex", alignItems: "center", gap: "8px", flexShrink: 0,
-          fontSize: "13px", fontWeight: 600,
-        }}>
-          <Search size={14} style={{ flexShrink: 0, opacity: 0.7 }} />
-          <span style={{ flex: 1 }}>
-            Searching: <span style={{ fontFamily: "var(--font-mono)", background: "#FDE68A", color: "#1E293B", borderRadius: "3px", padding: "1px 6px" }}>{search}</span>
-            <span style={{ fontWeight: 400, opacity: 0.7, marginLeft: "8px", fontSize: "12px" }}>
-              — {dena.length + lena.length} result{dena.length + lena.length !== 1 ? "s" : ""}
-            </span>
-          </span>
-          <button onClick={() => { setSearch(""); searchRef.current = ""; }}
-            style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "4px", padding: "3px 6px", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: "3px", fontSize: "12px" }}>
-            <X size={12} /> Clear (Esc)
-          </button>
-        </div>
-      )}
-
-      {/* ── Hint bar (web/desktop, no search active) ───────────────────────── */}
-      {!native && !search && !loading && (
-        <div style={{ background: "var(--bg-subtle, #F9FAFB)", borderBottom: "0.5px solid var(--border)", padding: "4px 16px", fontSize: "11px", color: "var(--text-tertiary)", flexShrink: 0, display: "flex", gap: "16px" }}>
-          <span>Type to search parties</span>
-          <span>Double-click or <kbd style={{ background: "#E5E7EB", borderRadius: "3px", padding: "0 4px", fontSize: "10px", fontWeight: 700 }}>Enter</kbd> to open ledger</span>
-        </div>
-      )}
-
       {/* ── Two independently scrollable columns ───────────────────────────── */}
       {loading ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -251,8 +243,8 @@ const BalanceSheet = () => {
               <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Payable (Blue)</div>
             </div>
             <div style={{ display: "flex", background: "#EFF6FF", borderBottom: "0.5px solid #BFDBFE", flexShrink: 0 }}>
-              <div style={{ flex: 1, padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
-              <div style={{ padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
+              <div style={{ flex: 1, padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
+              <div style={{ padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
               {dena.length === 0 ? (
@@ -261,12 +253,12 @@ const BalanceSheet = () => {
                 </div>
               ) : dena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, true)} data-testid={`dena-name-${p.id}`}>
-                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#1D4ED8" }}>{highlight(p.name, search)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#1D4ED8" }}>{highlight(p.name, search)}</span>
                   <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#1D4ED8" }} data-testid={`dena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: "2px solid #BFDBFE", background: "#DBEAFE", padding: "9px 8px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ borderTop: "2px solid #BFDBFE", background: "#DBEAFE", padding: "9px 4px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "#1E40AF" }}>Total Dena Hai</span>
               <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#1D4ED8" }} data-testid="dena-total">₹{fmt(data.total_payable)}</span>
             </div>
@@ -279,8 +271,8 @@ const BalanceSheet = () => {
               <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>Receivable (Red)</div>
             </div>
             <div style={{ display: "flex", background: "#FEF2F2", borderBottom: "0.5px solid #FECACA", flexShrink: 0 }}>
-              <div style={{ flex: 1, padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
-              <div style={{ padding: "6px 8px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
+              <div style={{ flex: 1, padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px" }}>Party Name</div>
+              <div style={{ padding: "6px 4px", fontSize: "12px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Amount (₹)</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
               {lena.length === 0 ? (
@@ -289,12 +281,12 @@ const BalanceSheet = () => {
                 </div>
               ) : lena.map((p, i) => (
                 <div key={p.id} {...rowProps(p.id, i, false)} data-testid={`lena-name-${p.id}`}>
-                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#B91C1C" }}>{highlight(p.name, search)}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#B91C1C" }}>{highlight(p.name, search)}</span>
                   <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#B91C1C" }} data-testid={`lena-amount-${p.id}`}>{fmt(p.amount)}</span>
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: "2px solid #FECACA", background: "#FEE2E2", padding: "9px 8px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ borderTop: "2px solid #FECACA", background: "#FEE2E2", padding: "9px 4px", display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "#991B1B" }}>Total Lena Hai</span>
               <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B91C1C" }} data-testid="lena-total">₹{fmt(data.total_receivable)}</span>
             </div>
