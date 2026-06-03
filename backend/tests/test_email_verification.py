@@ -5,6 +5,12 @@ import os
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 
+# Skip all HTTP-based tests when no server URL is configured (e.g., in CI unit-test runs)
+requires_server = pytest.mark.skipif(
+    not BASE_URL,
+    reason="REACT_APP_BACKEND_URL not set — skipping integration tests"
+)
+
 @pytest.fixture
 def session():
     s = requests.Session()
@@ -16,6 +22,7 @@ def get_auth_token(session):
     resp = session.post(f"{BASE_URL}/api/auth/login", json={"email": "admin@khaata.com", "password": "admin123"})
     return resp
 
+@requires_server
 class TestLoginEmailVerified:
     """Login response must include email_verified field"""
 
@@ -27,6 +34,7 @@ class TestLoginEmailVerified:
         print(f"PASS: email_verified={data['email_verified']}")
 
 
+@requires_server
 class TestVerifyEmailEndpoint:
     """GET /api/auth/verify-email?token="""
 
@@ -43,6 +51,7 @@ class TestVerifyEmailEndpoint:
         print(f"PASS: Missing token returns {resp.status_code}")
 
 
+@requires_server
 class TestResendVerification:
     """POST /api/auth/resend-verification — requires auth"""
 
@@ -66,6 +75,7 @@ class TestResendVerification:
         print(f"PASS: Resend returns 200: {data['message']}")
 
 
+@requires_server
 class TestRegistrationResponse:
     """Register response includes email_verified: false"""
 

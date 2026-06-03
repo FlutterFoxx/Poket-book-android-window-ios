@@ -10,6 +10,18 @@ jobs:
   backend-tests:
     name: Backend Syntax + Health Check
     runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,9 +40,24 @@ jobs:
 
       - name: Run backend unit tests
         working-directory: ./backend
+        env:
+          MONGO_URL: mongodb://localhost:27017
+          DB_NAME: test_db_ci
+          JWT_SECRET: ci_test_secret_key_at_least_32_bytes_long_for_hmac
+          ADMIN_EMAIL: admin@test.com
+          ADMIN_PASSWORD: admin123
+          SUPERADMIN_EMAIL: superadmin@test.com
+          SUPERADMIN_PASSWORD: SuperTest@2024
+          GOOGLE_CLIENT_ID: test_client_id
+          GOOGLE_CLIENT_SECRET: test_client_secret
+          GOOGLE_LOGIN_REDIRECT_URI: http://localhost:8001/api/auth/google/callback
+          FRONTEND_URL: http://localhost:3000
+          RESEND_API_KEY: test_key
+          SENDER_EMAIL: test@test.com
+          # No REACT_APP_BACKEND_URL → integration tests auto-skip
         run: |
-          if [ -d "tests" ] && [ "$(ls -A tests/*.py 2>/dev/null)" ]; then
-            python -m pytest tests/ -v --tb=short
+          if [ -d "tests" ] && [ "$(ls tests/*.py 2>/dev/null | wc -l)" -gt 0 ]; then
+            python -m pytest tests/ -v --tb=short -x
           else
             echo "No tests yet — skipped"
           fi

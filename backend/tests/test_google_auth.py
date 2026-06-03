@@ -7,12 +7,19 @@ import os
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 
+# Skip HTTP tests when no server URL configured (CI unit-test runs)
+requires_server = pytest.mark.skipif(
+    not BASE_URL,
+    reason="REACT_APP_BACKEND_URL not set — skipping integration tests"
+)
+
 def get_token(email, password):
     r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password})
     if r.status_code == 200:
         return r.json().get("access_token")
     return None
 
+@requires_server
 class TestGoogleOAuth:
     """Google OAuth endpoints"""
 
@@ -44,6 +51,7 @@ class TestGoogleOAuth:
         assert r.status_code in [302, 307]
 
 
+@requires_server
 class TestSettingsEmailVerification:
     """Settings page email verification flow"""
 
