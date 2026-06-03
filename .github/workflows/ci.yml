@@ -17,7 +17,7 @@ jobs:
 
       - name: Install backend deps
         working-directory: ./backend
-        run: pip install -r requirements.txt -q
+        run: pip install -r requirements.txt -q && pip install pytest -q
 
       - name: Syntax check all Python files
         working-directory: ./backend
@@ -29,7 +29,11 @@ jobs:
       - name: Run backend unit tests
         working-directory: ./backend
         run: |
-          if [ -d "tests" ]; then python -m pytest tests/ -v --tb=short; else echo "No tests yet — skipped"; fi
+          if [ -d "tests" ] && [ "$(ls -A tests/*.py 2>/dev/null)" ]; then
+            python -m pytest tests/ -v --tb=short
+          else
+            echo "No tests yet — skipped"
+          fi
 
   frontend-lint:
     name: Frontend Lint
