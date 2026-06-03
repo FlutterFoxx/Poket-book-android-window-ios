@@ -344,6 +344,54 @@ async def _upsert_google_user(email: str, name: str, picture: str):
         return str(user["_id"]), False, user.get("role", "user")
 
 
+@router.post("/auth/google/token")
+async def google_token_login(request: Request, response: Response):
+    """GIS ID Token flow — no redirect_uri needed. Receives id_token from frontend."""
+    import httpx, secrets as _sec
+    body = await request.json()
+    id_token = body.get("id_token", "")
+    if not id_token:
+        raise HTTPException(status_code=400, detail="id_token required")
+
+    # Verify the ID token with Google's tokeninfo endpoint
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": id_token})
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid Google token")
+        gdata = resp.json()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Google tokeninfo error: {e}")
+        raise HTTPException(status_code=401, detail="Google verification failed")
+
+    # Validate audience (client_id)
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    if client_id and gdata.get("aud") != client_id:
+        raise HTTPException(status_code=401, detail="Token audience mismatch")
+
+    email = gdata.get("email", "").lower()
+    name  = gdata.get("name", email.split("@")[0])
+    picture = gdata.get("picture", "")
+    if not email:
+        raise HTTPException(status_code=400, detail="No email in Google token")
+
+    user_id, is_new, existing_role = await _upsert_google_user(email, name, picture)
+    session_id = _sec.token_hex(16)
+    access_token  = create_access_token(user_id, email, session_id)
+    refresh_token = create_refresh_token(user_id)
+    set_auth_cookies(response, access_token, refresh_token)
+    await register_session(user_id, session_id)
+
+    role = "user" if is_new else (existing_role or "user")
+    return {
+        "id": user_id, "email": email, "name": name, "role": role,
+        "email_verified": True,
+        "access_token": access_token, "refresh_token": refresh_token,
+    }
+
+
 @router.get("/auth/google/login")
 async def google_login_url(request: Request):
     """Return the Google OAuth2 URL for the login flow."""

@@ -67,14 +67,51 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleGoogleLogin = async () => {
+  // ── Google Identity Services (GIS) — No redirect_uri needed ──────────────
+  const handleGoogleLogin = () => {
+    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    if (!clientId) { toast.error("Google login not configured."); return; }
+
     setGoogleLoading(true);
-    try {
-      const res = await api.get("/api/auth/google/login");
-      window.location.href = res.data.url;
-    } catch (err) {
-      toast.error("Google login unavailable. Please use Email login.");
-      setGoogleLoading(false);
+
+    const doSignIn = () => {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          try {
+            const res = await api.post("/api/auth/google/token", { id_token: response.credential });
+            login(res.data);
+            toast.success(`Welcome, ${res.data.name || "User"}!`);
+            navigate("/");
+          } catch (err) {
+            toast.error(err?.response?.data?.detail || "Google login failed. Try email login.");
+          } finally {
+            setGoogleLoading(false);
+          }
+        },
+        use_fedcm_for_prompt: false,
+      });
+      window.google.accounts.id.prompt((notification) => {
+        // If One Tap is suppressed, render the button flow
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          window.google.accounts.id.renderButton(
+            document.getElementById("google-btn-container"),
+            { theme: "outline", size: "large", width: 360 }
+          );
+          setGoogleLoading(false);
+        }
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      doSignIn();
+    } else {
+      // Load GIS script dynamically if not already loaded
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.onload = doSignIn;
+      script.onerror = () => { toast.error("Google login unavailable."); setGoogleLoading(false); };
+      document.head.appendChild(script);
     }
   };
 
@@ -131,10 +168,10 @@ const Login = () => {
             <span className="text-xl font-black text-white">Poket<span className="text-green-400">Book</span></span>
           </div>
 
-          {/* Google Login */}
+          {/* Google Login — GIS (no redirect URI needed) */}
           <button type="button" onClick={handleGoogleLogin} disabled={googleLoading}
             data-testid="google-login-btn"
-            className="w-full flex items-center justify-center gap-3 border border-white/20 rounded-xl py-3 mb-4 text-sm font-semibold text-white hover:bg-white/10 transition-colors disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-3 border border-white/20 rounded-xl py-3 mb-2 text-sm font-semibold text-white hover:bg-white/10 transition-colors disabled:opacity-60"
             style={{ background: "rgba(255,255,255,0.05)" }}>
             {googleLoading ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -146,8 +183,10 @@ const Login = () => {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
             )}
-            {googleLoading ? "Redirecting to Google..." : "Continue with Google"}
+            {googleLoading ? "Opening Google..." : "Continue with Google"}
           </button>
+          {/* GIS renders its button here if One Tap is suppressed */}
+          <div id="google-btn-container" className="flex justify-center mb-2" />
 
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-px bg-white/10" />
