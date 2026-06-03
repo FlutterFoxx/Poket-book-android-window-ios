@@ -99,8 +99,10 @@ function AppInner() {
 export default function App() {
   // Apply saved font settings on load
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_BACKEND_URL || ""}/api/superadmin/font-settings`)
-      .then(r => r.json())
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    if (!backendUrl) return; // skip if env var not configured
+    fetch(`${backendUrl}/api/superadmin/font-settings`)
+      .then(r => r.ok ? r.json() : Promise.reject())
       .then(d => {
         if (d.font_family) document.documentElement.style.setProperty("--font-body", `${d.font_family}, Arial, sans-serif`);
         if (d.font_family) document.documentElement.style.setProperty("--font-heading", `${d.font_family}, Arial, sans-serif`);
