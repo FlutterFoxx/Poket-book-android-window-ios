@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/contexts/AuthContext";
@@ -64,12 +64,12 @@ const Login = () => {
   const [showPass, setShowPass] = useState(false);
   const [mode, setMode] = useState("login"); // 'login' | 'register' | 'forgot'
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [gisError, setGisError] = useState(false); // true when origin not authorised
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // ── Sign in with Google (GIS) ────────────────────────────────────────────
+  // ── Sign in with Google (GIS) ─────────────────────────────────────────────
   // Per: developers.google.com/identity/gsi/web/guides/get-google-api-clientid
-  // Uses google.accounts.id.initialize() + renderButton() — no redirect_uri needed
   const [googleReady, setGoogleReady] = useState(false);
 
   // Initialise GIS once the script has loaded
@@ -78,32 +78,47 @@ const Login = () => {
     if (!clientId) return;
 
     const init = () => {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleGoogleCredential,    // receives JWT id_token
-        use_fedcm_for_prompt: false,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-      setGoogleReady(true);
+      try {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredential,
+          use_fedcm_for_prompt: false,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          error_callback: (err) => {
+            if (err?.type === "unknown" || err?.type === "unregistered_origin") {
+              setGisError(true);
+            }
+          },
+        });
+        setGoogleReady(true);
+      } catch (e) {
+        setGisError(true);
+      }
     };
 
     if (window.google?.accounts?.id) {
       init();
     } else {
-      // script still loading — wait for load event
       const script = document.querySelector('script[src*="accounts.google.com/gsi"]');
-      if (script) {
-        script.addEventListener("load", init, { once: true });
-      }
+      if (script) script.addEventListener("load", init, { once: true });
     }
   }, []); // eslint-disable-line
 
-  // Render GIS button into its container whenever the container is visible + GIS ready
+  // Render GIS button; detect "origin not allowed" from 403 on the button iframe
   useEffect(() => {
     if (!googleReady) return;
     const el = document.getElementById("g_id_signin");
     if (!el) return;
+
+    // Listen for the 403 iframe failure (origin not registered in Google Cloud Console)
+    const handleMessage = (e) => {
+      if (e.data && typeof e.data === "string" && e.data.includes("origin")) {
+        setGisError(true);
+      }
+    };
+    window.addEventListener("message", handleMessage);
+
     window.google.accounts.id.renderButton(el, {
       theme: "outline",
       size: "large",
@@ -112,7 +127,14 @@ const Login = () => {
       width: el.offsetWidth || 360,
       logo_alignment: "left",
     });
-  }, [googleReady, mode]); // re-render when form switches between login/register
+
+    // Check if GIS actually rendered something (or failed silently)
+    const checkRendered = setTimeout(() => {
+      if (el.offsetHeight < 5) setGisError(true); // button never appeared
+    }, 2500);
+
+    return () => { clearTimeout(checkRendered); window.removeEventListener("message", handleMessage); };
+  }, [googleReady, mode]); // eslint-disable-line
 
   // Called by GIS with the JWT credential
   const handleGoogleCredential = async (response) => {
@@ -185,8 +207,19 @@ const Login = () => {
             <span className="text-xl font-black text-white">Poket<span className="text-green-400">Book</span></span>
           </div>
 
-          {/* Sign in with Google — rendered by GIS renderButton() per Google docs */}
-          <div id="g_id_signin" className="w-full mb-2" style={{ minHeight: "44px" }} />
+          {/* Sign in with Google — GIS renderButton() per Google docs */}
+          {!gisError ? (
+            <div id="g_id_signin" className="w-full mb-2" style={{ minHeight: "44px" }} />
+          ) : (
+            /* Fallback: origin not in Google Cloud Console Authorized JavaScript Origins */
+            <div className="w-full mb-2 p-3 rounded-xl border border-white/10 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <p className="text-xs text-gray-500 mb-1">Google Sign-In unavailable on this domain.</p>
+              <p className="text-xs text-gray-600">
+                Add <span className="text-blue-400 font-mono text-xs">{window.location.origin}</span> to
+                Authorized JavaScript Origins in Google Cloud Console.
+              </p>
+            </div>
+          )}
           {googleLoading && (
             <div className="flex items-center justify-center gap-2 text-sm text-gray-400 mb-2">
               <div className="w-4 h-4 border-2 border-gray-400 border-t-white rounded-full animate-spin" />
