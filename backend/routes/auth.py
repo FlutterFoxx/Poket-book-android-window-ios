@@ -345,50 +345,72 @@ async def _upsert_google_user(email: str, name: str, picture: str):
 
 
 @router.post("/auth/google/token")
-async def google_token_login(request: Request, response: Response):
-    """GIS ID Token flow — no redirect_uri needed. Receives id_token from frontend."""
-    import httpx, secrets as _sec
-    body = await request.json()
-    id_token = body.get("id_token", "")
-    if not id_token:
-        raise HTTPException(status_code=400, detail="id_token required")
+async def google_sign_in(request: Request, response: Response):
+    """
+    Sign in with Google using GIS credential (JWT ID token).
+    Per: https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid
 
-    # Verify the ID token with Google's tokeninfo endpoint
+    Frontend sends: { "credential": "<JWT ID token from google.accounts.id callback>" }
+    Backend verifies via Google tokeninfo, creates/updates user, returns app JWT.
+    """
+    import httpx
+    import secrets as _sec
+
+    body = await request.json()
+    # Accept both 'credential' (GIS standard name) and 'id_token' (legacy)
+    credential = body.get("credential") or body.get("id_token", "")
+    if not credential:
+        raise HTTPException(status_code=400, detail="credential (JWT ID token) is required")
+
+    # ── Step 1: Verify the JWT ID token with Google's tokeninfo endpoint ──────
+    # Per Google docs: https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": id_token})
-        if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid Google token")
-        gdata = resp.json()
+            info_resp = await client.get(
+                "https://oauth2.googleapis.com/tokeninfo",
+                params={"id_token": credential}
+            )
+        if info_resp.status_code != 200:
+            logging.warning(f"Google tokeninfo rejected credential: {info_resp.text[:200]}")
+            raise HTTPException(status_code=401, detail="Invalid Google credential. Please try again.")
+        info = info_resp.json()
     except HTTPException:
         raise
-    except Exception as e:
-        logging.error(f"Google tokeninfo error: {e}")
-        raise HTTPException(status_code=401, detail="Google verification failed")
+    except Exception as exc:
+        logging.error(f"Google tokeninfo network error: {exc}")
+        raise HTTPException(status_code=503, detail="Could not verify Google credential. Please retry.")
 
-    # Validate audience (client_id)
-    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
-    if client_id and gdata.get("aud") != client_id:
-        raise HTTPException(status_code=401, detail="Token audience mismatch")
+    # ── Step 2: Validate the audience matches our Client ID ───────────────────
+    expected_client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    if expected_client_id and info.get("aud") != expected_client_id:
+        logging.warning(f"Token audience mismatch: got {info.get('aud')}, expected {expected_client_id}")
+        raise HTTPException(status_code=401, detail="Google credential not issued for this application.")
 
-    email = gdata.get("email", "").lower()
-    name  = gdata.get("name", email.split("@")[0])
-    picture = gdata.get("picture", "")
+    # ── Step 3: Extract verified user info ───────────────────────────────────
+    email = info.get("email", "").lower()
+    name  = info.get("name") or email.split("@")[0]
+    picture = info.get("picture", "")
+
     if not email:
-        raise HTTPException(status_code=400, detail="No email in Google token")
+        raise HTTPException(status_code=400, detail="Google account has no email address.")
+    if info.get("email_verified") not in (True, "true"):
+        raise HTTPException(status_code=400, detail="Google email address is not verified.")
 
+    # ── Step 4: Create or update user in database ─────────────────────────────
     user_id, is_new, existing_role = await _upsert_google_user(email, name, picture)
-    session_id = _sec.token_hex(16)
-    access_token  = create_access_token(user_id, email, session_id)
-    refresh_token = create_refresh_token(user_id)
-    set_auth_cookies(response, access_token, refresh_token)
+    role = "user" if is_new else (existing_role or "user")
+
+    # ── Step 5: Create app session and return JWT ─────────────────────────────
+    session_id   = _sec.token_hex(16)
+    access_token = create_access_token(user_id, email, session_id)
+    refresh_tok  = create_refresh_token(user_id)
+    set_auth_cookies(response, access_token, refresh_tok)
     await register_session(user_id, session_id)
 
-    role = "user" if is_new else (existing_role or "user")
     return {
         "id": user_id, "email": email, "name": name, "role": role,
         "email_verified": True,
-        "access_token": access_token, "refresh_token": refresh_token,
+        "access_token": access_token, "refresh_token": refresh_tok,
     }
 
 

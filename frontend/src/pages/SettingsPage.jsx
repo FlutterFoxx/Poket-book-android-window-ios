@@ -20,15 +20,16 @@ const SettingsPage = () => {
 
   const handleConnectGoogle = () => {
     const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-    if (!clientId) { toast.error("Google login not configured."); return; }
+    if (!clientId) { toast.error("Google not configured."); return; }
     setGoogleLoading(true);
 
-    const doGIS = () => {
+    const doConnect = () => {
+      // Re-initialize with connect callback
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: async (response) => {
           try {
-            const res = await api.post("/api/auth/google/token", { id_token: response.credential });
+            await api.post("/api/auth/google/token", { credential: response.credential });
             toast.success("Google account connected!");
             setGoogleLinked(true);
           } catch (err) {
@@ -36,19 +37,23 @@ const SettingsPage = () => {
           } finally { setGoogleLoading(false); }
         },
         use_fedcm_for_prompt: false,
+        auto_select: false,
       });
       window.google.accounts.id.prompt((n) => {
-        if (n.isNotDisplayed() || n.isSkippedMoment()) setGoogleLoading(false);
+        if (n.isNotDisplayed() || n.isSkippedMoment()) {
+          // Render button as fallback
+          const el = document.getElementById("settings-google-btn");
+          if (el) window.google.accounts.id.renderButton(el, { theme: "outline", size: "large" });
+          setGoogleLoading(false);
+        }
       });
     };
 
-    if (window.google?.accounts?.id) { doGIS(); }
+    if (window.google?.accounts?.id) { doConnect(); }
     else {
-      const s = document.createElement("script");
-      s.src = "https://accounts.google.com/gsi/client";
-      s.onload = doGIS;
-      s.onerror = () => { toast.error("Google login unavailable."); setGoogleLoading(false); };
-      document.head.appendChild(s);
+      const s = document.querySelector('script[src*="accounts.google.com/gsi"]');
+      if (s) s.addEventListener("load", doConnect, { once: true });
+      else { toast.error("Google not available."); setGoogleLoading(false); }
     }
   };
 
