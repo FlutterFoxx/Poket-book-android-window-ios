@@ -111,13 +111,40 @@ def verify_password(plain: str, hashed) -> bool:
     except Exception:
         return False
 
-def create_access_token(user_id: str, email: str) -> str:
-    payload = {"sub": user_id, "email": email, "exp": datetime.now(timezone.utc) + timedelta(days=7), "type": "access"}
+MAX_SESSIONS = 2  # Maximum concurrent device sessions per user
+
+def create_access_token(user_id: str, email: str, session_id: str = None) -> str:
+    import secrets as _sec
+    sid = session_id or _sec.token_hex(16)
+    payload = {
+        "sub": user_id, "email": email,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "type": "access", "sid": sid,
+    }
     return jwt.encode(payload, os.environ["JWT_SECRET"], algorithm=JWT_ALGORITHM)
 
 def create_refresh_token(user_id: str) -> str:
     payload = {"sub": user_id, "exp": datetime.now(timezone.utc) + timedelta(days=30), "type": "refresh"}
     return jwt.encode(payload, os.environ["JWT_SECRET"], algorithm=JWT_ALGORITHM)
+
+async def register_session(user_id: str, session_id: str) -> None:
+    """Store session; evict oldest if more than MAX_SESSIONS exist."""
+    now = datetime.now(timezone.utc)
+    await db.user_sessions.insert_one({
+        "user_id": user_id, "session_id": session_id,
+        "created_at": now, "last_seen": now,
+    })
+    # Keep only the most recent MAX_SESSIONS sessions — evict extras
+    sessions = await db.user_sessions.find(
+        {"user_id": user_id}, sort=[("created_at", -1)]
+    ).to_list(None)
+    if len(sessions) > MAX_SESSIONS:
+        evict_ids = [s["_id"] for s in sessions[MAX_SESSIONS:]]
+        await db.user_sessions.delete_many({"_id": {"$in": evict_ids}})
+
+async def revoke_session(user_id: str, session_id: str) -> None:
+    """Remove a specific session (logout)."""
+    await db.user_sessions.delete_one({"user_id": user_id, "session_id": session_id})
 
 async def get_current_user(request: Request) -> dict:
     token = request.cookies.get("access_token")
@@ -148,6 +175,24 @@ async def _decode_user(token: str) -> dict:
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+
+        # ── Session validation (2-device limit) ──
+        session_id = payload.get("sid")
+        if session_id:
+            session = await db.user_sessions.find_one({
+                "user_id": str(user["_id"]), "session_id": session_id
+            })
+            if not session:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Session expired — you have been logged in from another device. Please login again."
+                )
+            # Update last_seen
+            await db.user_sessions.update_one(
+                {"user_id": str(user["_id"]), "session_id": session_id},
+                {"$set": {"last_seen": datetime.now(timezone.utc)}}
+            )
+
         user["_id"] = str(user["_id"])
         user.pop("password_hash", None)
         # Always treat email as verified (email verification removed)

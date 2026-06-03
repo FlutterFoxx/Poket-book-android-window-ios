@@ -13,7 +13,7 @@ from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import uuid as uuid_lib
-from core import (db, hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, JWT_ALGORITHM, UserCreate, UserLogin, PhoneSendOTP, PhoneVerifyOTP, _otp_store)
+from core import (db, hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, JWT_ALGORITHM, UserCreate, UserLogin, PhoneSendOTP, PhoneVerifyOTP, _otp_store, register_session, revoke_session)
 from security import (
     validate_email, validate_password_strength, check_password_legacy,
     sanitize_name, sanitize_email,
@@ -82,9 +82,12 @@ async def register(data: UserCreate, response: Response, request: Request):
         "subscription_is_active": True,
     })
     user_id = str(result.inserted_id)
-    access_token = create_access_token(user_id, email)
+    import secrets as _sec
+    session_id = _sec.token_hex(16)
+    access_token = create_access_token(user_id, email, session_id)
     refresh_tok = create_refresh_token(user_id)
     set_auth_cookies(response, access_token, refresh_tok)
+    await register_session(user_id, session_id)
     await audit_log(db, "register_success", user_id, ip, email=email)
     return {"id": user_id, "email": email, "name": name, "role": "user",
             "email_verified": True,
@@ -119,16 +122,32 @@ async def login(data: UserLogin, response: Response, request: Request):
 
     await clear_rate_limit(db, identifier)
     user_id = str(user["_id"])
-    access_token = create_access_token(user_id, email)
+    import secrets as _sec
+    session_id = _sec.token_hex(16)
+    access_token = create_access_token(user_id, email, session_id)
     refresh_tok = create_refresh_token(user_id)
     set_auth_cookies(response, access_token, refresh_tok)
+    await register_session(user_id, session_id)
     await audit_log(db, "login_success", user_id, ip, email=email)
     return {"id": user_id, "email": email, "name": user.get("name"), "role": user.get("role", "user"),
             "email_verified": True,
             "access_token": access_token, "refresh_token": refresh_tok}
 
 @router.post("/auth/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    # Revoke the session so the slot becomes available for another device
+    try:
+        token = request.cookies.get("access_token")
+        if not token:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+        if token:
+            import jwt as _jwt
+            payload = _jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
+            await revoke_session(payload.get("sub", ""), payload.get("sid", ""))
+    except Exception:
+        pass
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"message": "Logged out"}
@@ -412,8 +431,11 @@ async def google_login_callback(request: Request, code: str = None, error: str =
 
     user_id, is_new, existing_role = await _upsert_google_user(email, name, picture)
 
-    access_token  = create_access_token(user_id, email)
+    import secrets as _sec
+    session_id = _sec.token_hex(16)
+    access_token  = create_access_token(user_id, email, session_id)
     refresh_token = create_refresh_token(user_id)
+    await register_session(user_id, session_id)
 
     # Redirect to frontend AuthCallbackPage with tokens in URL hash
     params = urllib.parse.urlencode({"token": access_token, "refresh_token": refresh_token})
